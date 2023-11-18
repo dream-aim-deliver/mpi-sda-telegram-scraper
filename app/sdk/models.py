@@ -31,7 +31,8 @@ class LFN(BaseModel):
     
     @model_validator(mode="after")
     def create_pfn(self):
-        self.pfn = generate_pfn(self.protocol, self.source, self.tracer_id, self.job_id, self.relative_path)
+        if self.pfn is None:
+            self.pfn = generate_pfn(self.protocol, self.source, self.tracer_id, self.job_id, self.relative_path)
         return self
     
 class BaseJob(BaseModel):

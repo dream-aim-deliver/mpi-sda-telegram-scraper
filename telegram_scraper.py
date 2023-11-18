@@ -1,19 +1,13 @@
 import os
 import logging
 import pandas as pd # type: ignore
-# import nest_asyncio
-from dotenv import load_dotenv
 from telethon.sync import TelegramClient # type: ignore
-from app.sdk.models import LFN, BaseJobState, DataSource, Protocol
+from app.sdk.models import LFN, BaseJobState, DataSource, Protocol, generate_pfn
 
 from app.telegram_scraper_impl import TelegramScraperJob
 
 logger = logging.getLogger(__name__)
 
-# Initialize nest_asyncio to run asyncio within Jupyter/IPython
-# nest_asyncio.apply()
-
-# TODO logger
 
 async def scrape(job: TelegramScraperJob, channel_name: str, api_id: str, api_hash: str):
     try:
@@ -30,7 +24,7 @@ async def scrape(job: TelegramScraperJob, channel_name: str, api_id: str, api_ha
             logger.info(f"Starting Job {job}")
             outfile = outfile_lfn.pfn
             logger.info(f"Output will be saved to: {outfile}")
-            job.output_lfns.append(outfile_lfn) 
+            
             job.state = BaseJobState.RUNNING
             job.touch()
             
@@ -53,32 +47,45 @@ async def scrape(job: TelegramScraperJob, channel_name: str, api_id: str, api_ha
                     # Check if the message has media (photo or video)
                     if message.media:
                         if hasattr(message.media, "photo"):
+                            pfn = generate_pfn(Protocol.LOCAL, DataSource.TELEGRAM, job.tracer_id, job.id, "photos")
+                            # Download photo
+                            file_location = await client.download_media(
+                                message.media.photo,
+                                file=os.path.join(".", pfn),
+                            )
+                            logger.info(f"Downloaded photo: {file_location}")
                             media_lfn: LFN = LFN(
                                 protocol=Protocol.LOCAL,
                                 tracer_id=job.tracer_id,
                                 job_id=job.id,
                                 source=DataSource.TELEGRAM,
-                                relative_path=file_location,
-                            )
-                            
-                            # Download photo
-                            file_location = await client.download_media(
-                                message.media.photo,
-                                file=os.path.join("downloaded_media", "photos"),
-                            )
-                                                          
-                            
-                            print(f"Downloaded photo: {file_location}")
+                                relative_path="photos",
+                                pfn=file_location,
+                            )          
+                            job.output_lfns.append(media_lfn)
+                            job.touch()                   
                         elif hasattr(message.media, "document"):
                             # Download video (or other documents)
+                            pfn = generate_pfn(Protocol.LOCAL, DataSource.TELEGRAM, job.tracer_id, job.id, "videos")
                             file_location = await client.download_media(
                                 message.media.document,
-                                file=os.path.join("downloaded_media", "videos"),
+                                file=os.path.join(".", pfn),
                             )
-                            print(f"Downloaded video: {file_location}")
+                            logger.info(f"Downloaded video: {file_location}")
+                            document_lfn: LFN = LFN(
+                                protocol=Protocol.LOCAL,
+                                tracer_id=job.tracer_id,
+                                job_id=job.id,
+                                source=DataSource.TELEGRAM,
+                                relative_path="videos",
+                                pfn=file_location,
+                            )
+                            job.output_lfns.append(document_lfn)
+                            job.touch()
             except Exception as error:
                 job.state = BaseJobState.FAILED
                 job.messages.append(f"Status: FAILED. Unable to scrape data. {error}") # type: ignore
+                job.touch()
                  
 
             # Save the data to a CSV file
@@ -99,7 +106,11 @@ async def scrape(job: TelegramScraperJob, channel_name: str, api_id: str, api_ha
             except:
                 job.state = BaseJobState.FAILED
                 job.messages.append("Status: FAILED. Unable to save data to CSV file. ")
-
+                job.touch()
+            job.output_lfns.append(outfile_lfn) 
+            job.state = BaseJobState.FINISHED
+            job.touch()
+    
     except Exception as e:
         job.state = BaseJobState.FAILED
         job.messages.append(f"Status: FAILED. Unable to scrape data. {e}")

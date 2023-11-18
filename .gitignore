@@ -2,7 +2,7 @@
 .venv
 *.session
 .downloaded_media
-
+data
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
