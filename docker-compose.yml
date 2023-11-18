@@ -1,0 +1,15 @@
+version: "3"
+services:
+    minio:
+        image: quay.io/minio/minio:latest
+        container_name: minio
+        restart: always
+        ports:
+            - "9000:9000"
+            - "9090:9090"
+        env_file:
+            - ./.env
+        volumes:
+            - ./minio/data:/data
+            - ./minio/config:/root/.minio
+        command: server /data --console-address ":9090"
