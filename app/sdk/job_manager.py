@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Generic, List
+from typing import Any, Dict, Generic, List
 
 from app.sdk.models import BaseJob, TBaseJob
 
@@ -15,24 +15,19 @@ class BaseJobManager(ABC, Generic[TBaseJob]):
     
     @property
     def nonce(self) -> int:
+        self._nonce = self._nonce + 1
         return self._nonce
     
-    @nonce.setter
-    def nonce(self, value: int) -> None:
-        self._nonce = value
-        return None
-
     @abstractmethod
-    def create_job(self) -> BaseJob:
-        raise NotImplementedError
-        self.nonce = self.nonce + 1
-        job = BaseJob(
-            id=self.nonce,
-            name=f"telegram-{self.nonce}",
-            output_lfn=[f"/telegram/{self.nonce}/data2_climate.csv"],
-        )
-        self.jobs[self.nonce] = job
-        return job
+    def make(self, *args: Any, **kwargs: Any) -> BaseJob:
+        raise NotImplementedError("make method must be implemented in a subclass.")
+
+
+    def create_job(self, tracer_id: str, *args: Any, **kwargs: Any) -> BaseJob:
+        id = self.nonce
+        job = self.make(tracer_id=tracer_id, id=id, **kwargs)
+        self.jobs[job.id] = job
+        return job        
     
     def get_job(self, job_id: int) -> TBaseJob:
         return self.jobs[job_id]

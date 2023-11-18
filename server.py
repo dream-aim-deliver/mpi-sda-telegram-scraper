@@ -1,12 +1,10 @@
-import time
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from pydantic import Field
 from typing import List
-from datetime import datetime
 
-from app.sdk.models import BaseJob
+from app.telegram_scraper_impl import TelegramScraperJob, TelegramScraperJobManager
 
 load_dotenv()
 
@@ -19,48 +17,39 @@ HOST = os.getenv("HOST", "localhost")
 PORT = int(os.getenv("PORT", "8000"))
 MODE = os.getenv("MODE", "production")
 
-
-
-class CreateJobResponse(BaseJob):
-    output_lfn: List[str] = Field(descipton="Output LFNs")
-
-
 app = FastAPI()
-JOBS: List[BaseJob] = [BaseJob(id=0, name="test", output_lfn=["test"], input_lfns=["test"], status="created")]
-JOB_NONCE = 0
+app.job_manager = TelegramScraperJobManager() # type: ignore
 
-class TelegramScrapeRequest(BaseModel):
-    channel: str = "GCC_report"
     
 @app.get("/job")
-def list_all_jobs() -> List[BaseJob]:
-    return JOBS
-
+def list_all_jobs() -> List[TelegramScraperJob]:
+    job_manager: TelegramScraperJobManager = app.job_manager # type: ignore
+    return job_manager.list_jobs()
 
 @app.post("/job")
-def create_job() -> BaseJob:
-    global JOB_NONCE
-    JOB_NONCE += 1  
-    date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    name = f"telegram-{JOB_NONCE}-{date}"
-    output_lfns = [f"/telegram/{JOB_NONCE}/{date}/data2_climate.csv"]
-    job = BaseJob(
-        id=JOB_NONCE,
-        name=name,
-        output_lfn=output_lfns,
-    )
-    JOBS.append(job)
+def create_job(tracer_id: str) -> TelegramScraperJob:
+    job_manager: TelegramScraperJobManager = app.job_manager # type: ignore
+    job: TelegramScraperJob = job_manager.create_job(tracer_id) # type: ignore
     return job
 
-@app.put("/telegram/scrape")
-async def scrape_telegram(request: TelegramScrapeRequest):
-    datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    outfile = f"data_telegram_{request.channel}_{datetime}.csv"
+@app.get("/job/{job_id}")
+def get_job(job_id: int) -> TelegramScraperJob:
+    job_manager: TelegramScraperJobManager = app.job_manager # type: ignore
+    job = job_manager.get_job(job_id)
+    return job
 
-    print(f"{datetime} - Starting scraping {outfile}")
-    start_time = time.time()
-    # This should be a background task
-    # await scrape(request.channel, outfile)
-    print(f"{datetime} - Scraping completed in {time.time() - start_time} seconds")
+# class TelegramScrapeRequest(BaseModel):
+#     channel: str = "GCC_report"
+
+# @app.put("/telegram/scrape")
+# async def scrape_telegram(request: TelegramScrapeRequest):
+#     datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#     outfile = f"data_telegram_{request.channel}_{datetime}.csv"
+
+#     print(f"{datetime} - Starting scraping {outfile}")
+#     start_time = time.time()
+#     # This should be a background task
+#     # await scrape(request.channel, outfile)
+#     print(f"{datetime} - Scraping completed in {time.time() - start_time} seconds")
     
-    return {"data": "Scraping completed"}
+#     return {"data": "Scraping completed"}
