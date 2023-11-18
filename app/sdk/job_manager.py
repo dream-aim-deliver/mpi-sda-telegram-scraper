@@ -19,7 +19,7 @@ class BaseJobManager(ABC, Generic[TBaseJob]):
         return self._nonce
     
     @abstractmethod
-    def make(self, *args: Any, **kwargs: Any) -> BaseJob:
+    def make(self, *args: Any, **kwargs: Any) -> TBaseJob:
         raise NotImplementedError("make method must be implemented in a subclass.")
 
 
