@@ -26,7 +26,7 @@ class BaseJobManager(ABC, Generic[TBaseJob]):
     def create_job(self, tracer_id: str, *args: Any, **kwargs: Any) -> BaseJob:
         id = self.nonce
         job = self.make(tracer_id=tracer_id, id=id, **kwargs)
-        self.jobs[job.id] = job
+        self.jobs[job.id] = job # type: ignore
         return job        
     
     def get_job(self, job_id: int) -> TBaseJob:

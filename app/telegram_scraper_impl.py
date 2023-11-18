@@ -1,6 +1,8 @@
 from typing import Any
+
+from pydantic import field_validator
 from app.sdk.job_manager import BaseJobManager
-from app.sdk.models import BaseJob, BaseJobState
+from app.sdk.models import LFN, BaseJob, BaseJobState, Protocol, DataSource
 from enum import Enum
 
 class TelegramScraperStage(Enum):
@@ -8,7 +10,6 @@ class TelegramScraperStage(Enum):
 
 class TelegramScraperJob(BaseJob):
     state: BaseJobState | TelegramScraperStage = BaseJobState.CREATED
-
 
 class TelegramScraperJobManager(BaseJobManager[TelegramScraperJob]):
     def __init__(self) -> None:
@@ -19,6 +20,5 @@ class TelegramScraperJobManager(BaseJobManager[TelegramScraperJob]):
             id=int(id),
             tracer_id=tracer_id,
             name=f"telegram-{id}",
-            output_lfn=[f"es:{tracer_id}/telegram/{id}/data2_climate.csv"],
         )
         return job
