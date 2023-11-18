@@ -2,19 +2,11 @@ from minio import Minio # type: ignore
 
 
 class MinIOGateway:
-    def __init__(self, host: str, port: str, root_user: str, password: str) -> None:
-        self._user = root_user
-        self._password = password
+    def __init__(self, host: str, port: str, access_key: str, secret_key: str) -> None:
+        self._access_key = access_key
+        self._secret_key = secret_key
         self._url = f"{host}:{port}"
 
-    @property
-    def user(self) -> str:
-        return self._user
-    
-    @property
-    def password(self) -> str:
-        return self._password
-    
     @property
     def url(self) -> str:
         return self._url
@@ -22,8 +14,8 @@ class MinIOGateway:
     def get_client(self) -> Minio:
         client = Minio(
             self.url,
-            access_key=self.user,
-            secret_key=self.password,
+            access_key=self._access_key,
+            secret_key=self._secret_key,
             secure=False,
         )
         return client
@@ -42,7 +34,8 @@ class MinIOGateway:
     def list_objects(self, bucket_name: str) -> list[str]:
         client = self.get_client()
         objects = client.list_objects(bucket_name)
-        return [object.name for object in objects]
+        objects = list(objects)
+        return [obj.object_name for obj in objects]
     
     def upload_file(self, bucket_name: str, object_name: str, file_path: str) -> None:
         """

@@ -26,8 +26,8 @@ USERNAME = os.getenv("USERNAME")
 HOST = os.getenv("HOST", "localhost")
 PORT = int(os.getenv("PORT", "8000"))
 MODE = os.getenv("MODE", "production")
-MINIO_ROOT_USER = os.getenv("MINIO_ROOT_USER")
-MINIO_ROOT_PASSWORD = os.getenv("MINIO_ROOT_PASSWORD")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY")
 
 
 app = FastAPI()
