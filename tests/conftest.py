@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 import pytest
 
-from app.sdk.minio_gateway import MinIORepository 
+from app.sdk.minio_repository import MinIORepository
 
 
 load_dotenv()
@@ -11,11 +11,12 @@ load_dotenv()
 @pytest.fixture
 def minio_config():
     return {
-        "host": os.getenv("MINIO_HOST","localhost"),
-        "port": os.getenv("MINIO_PORT","9000"),
-        "access_key": os.getenv("MINIO_ACCESS_KEY","minioadmin"),
-        "secret_key": os.getenv("MINIO_SECRET_KEY","minioadmin"),
+        "host": os.getenv("MINIO_HOST", "localhost"),
+        "port": os.getenv("MINIO_PORT", "9000"),
+        "access_key": os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
+        "secret_key": os.getenv("MINIO_SECRET_KEY", "minioadmin"),
     }
+
 
 @pytest.fixture
 def minio(minio_config):

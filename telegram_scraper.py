@@ -4,7 +4,7 @@ import shutil
 import pandas as pd  # type: ignore
 from telethon.sync import TelegramClient
 from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway  # type: ignore
-from app.sdk.minio_gateway import MinIORepository
+from app.sdk.minio_repository import MinIORepository
 from app.sdk.models import LFN, BaseJob, BaseJobState, DataSource, Protocol
 
 import tempfile

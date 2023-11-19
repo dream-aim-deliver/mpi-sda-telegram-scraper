@@ -1,7 +1,7 @@
 import os
 import tempfile
 
-from app.sdk.minio_gateway import MinIORepository
+from app.sdk.minio_repository import MinIORepository
 from app.sdk.models import LFN, Protocol, DataSource
 
 
