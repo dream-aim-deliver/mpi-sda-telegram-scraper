@@ -161,10 +161,10 @@ class MinIORepository:
         """
         Generate an object name from a PFN for MinIO S3 Repository.
         """
-        return "-".join(pfn.split("://")[1].split("-")[2:])
+        return "/".join(pfn.split("://")[1].split("/")[2:])
 
     def object_name_to_pfn(self, object_name: str) -> str:
         """
         Generate a PFN from an object name for MinIO S3 Repository.
         """
-        return f"s3://{self.host}:{self.port}-{self.bucket}-{object_name}"
+        return f"s3://{self.host}:{self.port}/{self.bucket}/{object_name}"

@@ -1,3 +1,4 @@
+import os
 import tempfile
 
 from app.sdk.minio_gateway import MinIORepository
@@ -36,15 +37,30 @@ def test_minio_gateway_list_objects(minio: MinIORepository):
         assert object_name in objects
 
 
-def test_download_file(minio: MinIORepository):
+def test_upload_download_file(minio: MinIORepository):
+    lfn = LFN(
+        protocol=Protocol.S3,
+        tracer_id="test",
+        job_id=1,
+        source=DataSource.TELEGRAM,
+        relative_path="root/data2_climate-sdamarker.txt",
+    )
+
+    minio.create_bucket_if_not_exists("default")
+
+    content = b"test"
     with tempfile.NamedTemporaryFile() as f:
-        f.write(b"test")
+        f.write(content)
         f.seek(0)
-        bucket_name = "test-bucket"
-        object_name = "test-object"
-        minio._upload_file(bucket_name, object_name, f.name)
-        minio._download_file(bucket_name, object_name, f.name)
-        assert f.read() == b"test"
+        minio.upload_file(lfn, f.name)
+
+    f = tempfile.NamedTemporaryFile()
+    minio.download_file(lfn, f.name)
+    with open(f.name, "rb") as file:
+        data = file.read()
+        assert data == content
+    # delete file
+    os.remove(f.name)
 
 
 def test_lfn_to_pfn(minio: MinIORepository):
@@ -85,15 +101,15 @@ def test_pfn_to_lfn(minio: MinIORepository):
 
 
 def test_pfn_to_object_name(minio: MinIORepository):
-    pfn = "s3://localhost:9000-default-test-telegram-1-root-data2_climate-sdamarker.csv"
+    pfn = "s3://localhost:9000/default/test/telegram/1/root/data2_climate-sdamarker.csv"
     object_name = minio.pfn_to_object_name(pfn)
-    assert object_name == "test-telegram-1-root-data2_climate-sdamarker.csv"
+    assert object_name == "test/telegram/1/root/data2_climate-sdamarker.csv"
 
 
 def test_object_name_to_pfn(minio: MinIORepository):
-    object_name = "test-telegram-1-root-data2_climate-sdamarker.csv"
+    object_name = "test/telegram/1/root/data2_climate-sdamarker.csv"
     pfn = minio.object_name_to_pfn(object_name)
     assert (
         pfn
-        == "s3://localhost:9000-default-test-telegram-1-root-data2_climate-sdamarker.csv"
+        == "s3://localhost:9000/default/test/telegram/1/root/data2_climate-sdamarker.csv"
     )
