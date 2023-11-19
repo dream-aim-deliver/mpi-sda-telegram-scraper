@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
+import logging
 from typing import List
 from fastapi import BackgroundTasks
 
@@ -8,6 +9,9 @@ from pydantic import BaseModel
 from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway
 from app.sdk.minio_repository import MinIORepository
 from app.sdk.models import LFN
+
+
+logger = logging.getLogger(__name__)
 
 
 class BaseWorkflowStatus(Enum):
@@ -29,7 +33,7 @@ class WorkfowArgs(BaseModel):
     input_lfns: List[LFN] = []
 
 
-class BaseWorkflow(BackgroundTasks):
+class BaseWorkflowExecutor(BackgroundTasks):
     def __init__(
         self,
         tracer_key: str,
@@ -66,8 +70,8 @@ class BaseWorkflow(BackgroundTasks):
         return self._tracer_key
 
     @abstractmethod
-    async def run(self):
+    async def run(self, *args, **kwargs):
         raise NotImplementedError("run method must be implemented for your workflow!!")
 
-    def execute(self):
+    def execute(self, *args, **kwargs):
         self.add_task(self.run)

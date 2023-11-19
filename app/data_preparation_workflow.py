@@ -1,11 +1,11 @@
-from app.sdk.workflow import BaseWorkflow, WorkfowArgs
+from app.sdk.workflow_executor import BaseWorkflowExecutor, WorkfowArgs
 
 
 class DataPreparationWorkflowArgs(WorkfowArgs):
     pass
 
 
-class DataPreparationWorkflow(BaseWorkflow):
+class DataPreparationWorkflow(BaseWorkflowExecutor):
     def __init__(
         self,
         tracer_key: str,
