@@ -1,14 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Generic, List
+from typing import Any, Dict, List
 import os
-from pydantic import BaseModel
 
-from app.sdk.models import BaseJob, TBaseJob
+from app.sdk.models import BaseJob
 
 
-class BaseJobManager(ABC, Generic[TBaseJob]):
+class BaseJobManager(ABC):
     def __init__(self) -> None:
-        self._jobs: Dict[int, TBaseJob] = {}
+        self._jobs: Dict[int, BaseJob] = {}
         self._nonce = 0
 
     @property
@@ -16,7 +15,7 @@ class BaseJobManager(ABC, Generic[TBaseJob]):
         return os.getenv("JOB_MANAGER_NAME", "default")
 
     @property
-    def jobs(self) -> Dict[int, TBaseJob]:
+    def jobs(self) -> Dict[int, BaseJob]:
         return self._jobs
 
     @property
@@ -25,7 +24,7 @@ class BaseJobManager(ABC, Generic[TBaseJob]):
         return self._nonce
 
     @abstractmethod
-    def make(self, *args: Any, **kwargs: Any) -> TBaseJob:
+    def make(self, *args: Any, **kwargs: Any) -> BaseJob:
         """
         Return a new Job object. This function is called when a new job is
         requested.
@@ -47,8 +46,8 @@ class BaseJobManager(ABC, Generic[TBaseJob]):
         self.jobs[job.id] = job  # type: ignore
         return job
 
-    def get_job(self, job_id: int) -> TBaseJob:
+    def get_job(self, job_id: int) -> BaseJob:
         return self.jobs[job_id]
 
-    def list_jobs(self) -> List[TBaseJob]:
+    def list_jobs(self) -> List[BaseJob]:
         return list(self._jobs.values())

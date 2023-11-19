@@ -1,8 +1,7 @@
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from pydantic import Field
-from typing import List
+from app.sdk.job_manager import BaseJobManager
 from app.sdk.job_router import JobManagerFastAPIRouter
 
 from telegram_scraper import scrape
@@ -24,6 +23,6 @@ PORT = int(os.getenv("PORT", "8000"))
 MODE = os.getenv("MODE", "production")
 
 app = FastAPI()
-app.job_manager = TelegramScraperJobManager()  # type: ignore
+app.job_manager = BaseJobManager()  # type: ignore
 
 job_manager_router = JobManagerFastAPIRouter(app, scrape)
