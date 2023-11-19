@@ -20,7 +20,7 @@ async def scrape(
     try:
         api_id = os.getenv("API_ID")
         api_hash = os.getenv("API_HASH")
-        if not job.args["channel_name"]:
+        if "channel_name" not in job.args:
             # YOU CAN RAISE AN ERROR HERE IF YOU WANT
             # raise ValueError("channel_name must be set.")
             channel_name = "GCC_report"
