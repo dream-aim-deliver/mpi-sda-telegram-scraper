@@ -54,6 +54,7 @@ class BaseJob(BaseModel):
     created_at: datetime = datetime.now()
     heartbeat: datetime = datetime.now()
     name: str
+    args: dict = {}
     state: Enum = BaseJobState.CREATED
     messages: List[str] = []
     output_lfns: List[LFN] = []

@@ -15,13 +15,21 @@ logger = logging.getLogger(__name__)
 
 async def scrape(
     job: TelegramScraperJob,
-    channel_name: str,
-    api_id: str,
-    api_hash: str,
     minio_repository: MinIORepository,
     protocol: Protocol = Protocol.S3,
 ) -> None:
     try:
+        api_id = os.getenv("API_ID")
+        api_hash = os.getenv("API_HASH")
+        if not job.args["channel_name"]:
+            # YOU CAN RAISE AN ERROR HERE IF YOU WANT
+            # raise ValueError("channel_name must be set.")
+            channel_name = "GCC_report"
+        else:
+            channel_name = job.args["channel_name"]
+
+        if api_id is None or api_hash is None:
+            raise ValueError("API_ID and API_HASH for telegram must be set.")
         async with TelegramClient("sda-telegram-scraper", api_id, api_hash) as client:
             logger.info(f"{job.id}: Starting Job {job}")
 
