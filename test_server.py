@@ -1,56 +1,59 @@
+import random
 from typing import Dict, Generic, TypeVar
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from pydantic import BaseModel
 
 
-class ParentResponse(BaseModel):
-    required_parent_field: str = "required_parent_field"
+class BaseJob(BaseModel):
+    id: int
+    workflow: str
+    job_args: Dict[str, str] = {}
 
 
-TResponseModel = TypeVar("TResponseModel", bound=ParentResponse)
-
-
-class BaseRouter(Generic[TResponseModel]):
+class BaseWorkflow:
     def __init__(self, name: str, app: FastAPI):
         self.name = name
         self.app = app
-        self.register_create_route()
+        self.router = APIRouter(prefix=f"/{self.name}")
+        self.create_job_route()
+        self.app.include_router(self.router)
 
-    def main_thing(self) -> ParentResponse:
-        return ParentResponse(required_parent_field="from parent")
+    def create_job(self, *args, **kwargs) -> BaseJob:
+        return BaseJob(id=random.randint(0, 1000), workflow=self.name, job_args=kwargs)
 
-    def register_create_route(self):
-        @self.app.get(f"/{self.name}", response_model=ParentResponse)
+    def create_job_route(self):
+        @self.router.post(
+            f"/",
+            name="Create a new Workflow Execution Request",
+            response_model=BaseJob,
+        )
         def parent_wrapper(parent: int):
-            return self.main_thing()
+            return self.create_job()
 
 
-class ChildResponse(ParentResponse):
-    required_child_field: str = "required_child_field"
+class DataProcessingJob(BaseJob):
+    telegram_channel: str
 
 
-class ChildRouter(BaseRouter[ChildResponse]):
+class DataProcessingWorkflow(BaseWorkflow):
     def __init__(self, app: FastAPI):
-        super().__init__("child", app)
+        super().__init__("data_processing", app)
 
-    # def main_thing(self) -> ChildResponse:
-    #     return ChildResponse(
-    #         required_parent_field="required_parent_field",
-    #         required_child_field="required_child_field",
-    #     )
-
-    def register_create_route(self):
-        @self.app.get(f"/{self.name}", response_model=ChildResponse)
-        def child_wrapper(a: int):
-            parent_response: ParentResponse = super(ChildRouter, self).main_thing()
-            return ChildResponse(
-                required_parent_field=parent_response.required_parent_field,
-                required_child_field="from child",
+    def create_job_route(self):
+        @self.router.post(
+            f"/",
+            name="Create a new Data Processing Workflow Execution Request",
+            response_model=BaseJob,
+        )
+        def child_wrapper(telegram_channel: str):
+            job: BaseJob = super(DataProcessingWorkflow, self).create_job(
+                telegram_channel=telegram_channel
             )
+            return job
 
 
 app = FastAPI()
-ChildRouter(app)
+DataProcessingWorkflow(app)
 
 if __name__ == "__main__":
     import uvicorn
