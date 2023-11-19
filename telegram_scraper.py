@@ -2,7 +2,8 @@ import os
 import logging
 import shutil
 import pandas as pd  # type: ignore
-from telethon.sync import TelegramClient  # type: ignore
+from telethon.sync import TelegramClient
+from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway  # type: ignore
 from app.sdk.minio_gateway import MinIORepository
 from app.sdk.models import LFN, BaseJob, BaseJobState, DataSource, Protocol
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 async def scrape(
     job: BaseJob,
+    kernel_planckster_gateway: KernelPlancksterGateway,
     minio_repository: MinIORepository,
     protocol: Protocol = Protocol.S3,
 ) -> None:

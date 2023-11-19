@@ -2,6 +2,7 @@ import os
 from typing import Any, Callable, Dict, List, TypedDict
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
+from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway
 from app.sdk.minio_gateway import MinIORepository
 
 from app.sdk.models import LFN, Protocol
@@ -20,6 +21,7 @@ class JobManagerFastAPIRouter:
         MINIO_PORT = os.getenv("MINIO_PORT")
         MINIO_BUCKET = os.getenv("MINIO_BUCKET")
         STORAGE_PROTOCOL_CONFIG = os.getenv("STORAGE_PROTOCOL", "S3")
+
         self.STORAGE_PROTOCOL = Protocol(STORAGE_PROTOCOL_CONFIG.lower())
         if self.STORAGE_PROTOCOL == Protocol.S3:
             if not (
@@ -37,6 +39,21 @@ class JobManagerFastAPIRouter:
                 port=MINIO_PORT,
                 access_key=MINIO_ACCESS_KEY,
                 secret_key=MINIO_SECRET_KEY,
+            )
+
+            KP_HOST = os.getenv("KERNEL_PLANKSTER_HOST", "http://localhost")
+            KP_PORT = os.getenv("KERNEL_PLANKSTER_PORT", "8000")
+
+            if not (KP_HOST and KP_PORT):
+                raise ValueError(
+                    "Environment Variables KERNEL_PLANKSTER_HOST and KERNEL_PLANKSTER_PORT must be set."
+                )
+            if "http" not in KP_HOST:
+                raise ValueError(
+                    "Environment Variable KERNEL_PLANKSTER_HOST must start with http:// or https://"
+                )
+            self.kernel_plankster_gateway = KernelPlancksterGateway(
+                host=KP_HOST, port=KP_PORT
             )
 
     def register_endpoints(self):
@@ -75,5 +92,8 @@ class JobManagerFastAPIRouter:
                     )
 
             background_tasks.add_task(
-                self.worker, job=job, minio_repository=self.minio_repository
+                self.worker,
+                job=job,
+                minio_repository=self.minio_repository,
+                kernel_plankster_gateway=self.kernel_plankster_gateway,
             )
