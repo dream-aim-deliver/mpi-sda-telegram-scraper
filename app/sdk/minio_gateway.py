@@ -1,6 +1,8 @@
+import logging
 from minio import Minio  # type: ignore
-import re
 from app.sdk.models import LFN, DataSource, Protocol
+
+logger = logging.getLogger(__name__)
 
 
 class MinIORepository:
@@ -45,6 +47,7 @@ class MinIORepository:
 
     def create_bucket_if_not_exists(self, bucket_name: str) -> None:
         if bucket_name in self.list_buckets():
+            logger.info(f"MinIO Repository: Bucket {bucket_name} already exists.")
             return
         client = self.get_client()
         client.make_bucket(bucket_name)
