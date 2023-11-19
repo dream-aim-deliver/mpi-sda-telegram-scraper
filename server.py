@@ -25,7 +25,7 @@ MODE = os.getenv("MODE", "production")
 app = FastAPI()
 app.job_manager = BaseJobManager()  # type: ignore
 
-job_manager_router = JobManagerFastAPIRouter(app, scrape)
+# job_manager_router = JobManagerFastAPIRouter(app, scrape)
 
 
 if __name__ == "__main__":

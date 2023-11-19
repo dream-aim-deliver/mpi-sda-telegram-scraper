@@ -48,9 +48,6 @@ class LFN(BaseModel):
 
 class BaseJob(BaseModel):
     id: int
-    tracer_id: str = Field(
-        description="A unique identifier to trace jobs across the SDA runtime."
-    )
     created_at: datetime = datetime.now()
     heartbeat: datetime = datetime.now()
     name: str
