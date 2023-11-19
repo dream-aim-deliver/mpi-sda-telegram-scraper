@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 import pytest
 
-from app.sdk.minio_gateway import MinIOGateway 
+from app.sdk.minio_gateway import MinIORepository 
 
 
 load_dotenv()
@@ -19,7 +19,7 @@ def minio_config():
 
 @pytest.fixture
 def minio(minio_config):
-    minio = MinIOGateway(
+    minio = MinIORepository(
         host=minio_config["host"],
         port=minio_config["port"],
         access_key=minio_config["access_key"],
