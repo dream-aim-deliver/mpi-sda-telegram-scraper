@@ -4,9 +4,8 @@ import shutil
 import pandas as pd  # type: ignore
 from telethon.sync import TelegramClient  # type: ignore
 from app.sdk.minio_gateway import MinIORepository
-from app.sdk.models import LFN, BaseJobState, DataSource, Protocol
+from app.sdk.models import LFN, BaseJob, BaseJobState, DataSource, Protocol
 
-from app.telegram_scraper_impl import TelegramScraperJob
 import tempfile
 
 
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 async def scrape(
-    job: TelegramScraperJob,
+    job: BaseJob,
     minio_repository: MinIORepository,
     protocol: Protocol = Protocol.S3,
 ) -> None:

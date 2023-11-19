@@ -1,11 +1,10 @@
-from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 import os
 
 from app.sdk.models import BaseJob
 
 
-class BaseJobManager(ABC):
+class BaseJobManager:
     def __init__(self) -> None:
         self._jobs: Dict[int, BaseJob] = {}
         self._nonce = 0
@@ -22,15 +21,6 @@ class BaseJobManager(ABC):
     def nonce(self) -> int:
         self._nonce = self._nonce + 1
         return self._nonce
-
-    @abstractmethod
-    def make(self, *args: Any, **kwargs: Any) -> BaseJob:
-        """
-        Return a new Job object. This function is called when a new job is
-        requested.
-        The parameters are decided by the subclass.
-        """
-        raise NotImplementedError("make method must be implemented in a subclass.")
 
     def create_job(
         self, tracer_id: str, job_args: Dict[str, Any], *args: Any, **kwargs: Any
