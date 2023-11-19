@@ -41,20 +41,20 @@ class JobManagerFastAPIRouter:
                 secret_key=MINIO_SECRET_KEY,
             )
 
-            KP_HOST = os.getenv("KERNEL_PLANKSTER_HOST", "http://localhost")
-            KP_PORT = os.getenv("KERNEL_PLANKSTER_PORT", "8000")
+        KP_HOST = os.getenv("KERNEL_PLANKSTER_HOST", "http://localhost")
+        KP_PORT = os.getenv("KERNEL_PLANKSTER_PORT", "8000")
 
-            if not (KP_HOST and KP_PORT):
-                raise ValueError(
-                    "Environment Variables KERNEL_PLANKSTER_HOST and KERNEL_PLANKSTER_PORT must be set."
-                )
-            if "http" not in KP_HOST:
-                raise ValueError(
-                    "Environment Variable KERNEL_PLANKSTER_HOST must start with http:// or https://"
-                )
-            self.kernel_plankster_gateway = KernelPlancksterGateway(
-                host=KP_HOST, port=KP_PORT
+        if not (KP_HOST and KP_PORT):
+            raise ValueError(
+                "Environment Variables KERNEL_PLANKSTER_HOST and KERNEL_PLANKSTER_PORT must be set."
             )
+        if "http" not in KP_HOST:
+            raise ValueError(
+                "Environment Variable KERNEL_PLANKSTER_HOST must start with http:// or https://"
+            )
+        self.kernel_plankster_gateway = KernelPlancksterGateway(
+            host=KP_HOST, port=KP_PORT
+        )
 
     def register_endpoints(self):
         @self.router.get("/job")
@@ -81,7 +81,10 @@ class JobManagerFastAPIRouter:
         @self.router.get("/job/{job_id}/start")
         def start_job(job_id: int, background_tasks: BackgroundTasks):
             job_manager = self.app.job_manager
-            job = job_manager.get_job(job_id)
+            try:
+                job = job_manager.get_job(job_id)
+            except KeyError:
+                raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
             if self.STORAGE_PROTOCOL == Protocol.S3:
                 try:
                     bucket = self.minio_repository.bucket
@@ -90,10 +93,14 @@ class JobManagerFastAPIRouter:
                     raise HTTPException(
                         status_code=500, detail=f"Failed to connect to MinIO: {e}"
                     )
-
+            pong = self.kernel_plankster_gateway.ping()
+            if not pong:
+                raise HTTPException(
+                    status_code=500, detail="Failed to connect to Kernel Plankster"
+                )
             background_tasks.add_task(
                 self.worker,
                 job=job,
+                kernel_planckster=self.kernel_plankster_gateway,
                 minio_repository=self.minio_repository,
-                kernel_plankster_gateway=self.kernel_plankster_gateway,
             )

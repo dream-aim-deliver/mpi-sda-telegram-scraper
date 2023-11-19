@@ -26,3 +26,10 @@ app = FastAPI()
 app.job_manager = BaseJobManager()  # type: ignore
 
 job_manager_router = JobManagerFastAPIRouter(app, scrape)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    print(f"Starting server on {HOST}:{PORT}")
+    uvicorn.run("server:app", host=HOST, port=PORT, reload=True)

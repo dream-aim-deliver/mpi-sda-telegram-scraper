@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 async def scrape(
     job: BaseJob,
-    kernel_planckster_gateway: KernelPlancksterGateway,
+    kernel_planckster: KernelPlancksterGateway,
     minio_repository: MinIORepository,
     protocol: Protocol = Protocol.S3,
 ) -> None:
@@ -145,6 +145,11 @@ async def scrape(
                                     )
                                 job.output_lfns.append(document_lfn)
                                 job.touch()
+                                kernel_planckster.register_new_data(
+                                    pfns=[
+                                        pfn,
+                                    ],
+                                )
             except Exception as error:
                 logger.error(
                     f"{job.id}: Unable to scrape data. {error}. Job {job} failed."
@@ -152,6 +157,7 @@ async def scrape(
                 job.state = BaseJobState.FAILED
                 job.messages.append(f"Status: FAILED. Unable to scrape data. {error}")  # type: ignore
                 job.touch()
+                # TODO: continue to scrape data if possible
 
             # Save the data to a CSV file
             df = pd.DataFrame(
