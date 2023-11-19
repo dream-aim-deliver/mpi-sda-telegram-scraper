@@ -23,16 +23,7 @@ async def scrape(
 ) -> None:
     try:
         async with TelegramClient("sda-telegram-scraper", api_id, api_hash) as client:
-            outfile_lfn: LFN = LFN(
-                protocol=protocol,
-                tracer_id=job.tracer_id,
-                job_id=job.id,
-                source=DataSource.TELEGRAM,
-                relative_path="data2_climate.csv",
-            )
             logger.info(f"{job.id}: Starting Job {job}")
-            outfile = minio_repository.lfn_to_pfn(outfile_lfn)
-            logger.info(f"{job.id}: Output will be saved to: {outfile}")
 
             # Set the job state to running
             job.state = BaseJobState.RUNNING
@@ -43,7 +34,11 @@ async def scrape(
                 async for message in client.iter_messages(
                     f"https://t.me/{channel_name}"
                 ):
-                    logger.info(message.sender_id, ":", message.text, message.date)
+                    ##################################################################
+                    # IF YOU CAN ALREADY VALIDATE YOUR DATA HERE
+                    # YOU MIGHT NOT NEED A LLM TO FIX ISSUES WITH THE DATA
+                    ##################################################################
+                    logger.info(f"message: {message}")
                     data.append(
                         [
                             message.sender_id,
@@ -76,18 +71,14 @@ async def scrape(
                                     tracer_id=job.tracer_id,
                                     job_id=job.id,
                                     source=DataSource.TELEGRAM,
-                                    relative_path="photos",
+                                    relative_path=f"photos",
                                 )
                                 if protocol == Protocol.S3:
                                     pfn = minio_repository.lfn_to_pfn(media_lfn)
                                     logger.debug(
                                         f"{job.id}:Uploading photo {media_lfn} to {pfn}"
                                     )
-                                    minio_repository.upload_file(
-                                        minio_repository.bucket,
-                                        pfn,
-                                        file_location,
-                                    )
+                                    minio_repository.upload_file(media_lfn, tmp.name)
                                     logger.info(
                                         f"{job.id}: Uploaded photo {media_lfn} to {pfn}"
                                     )
@@ -127,8 +118,7 @@ async def scrape(
                                         f" {job.id}: Uploading video {document_lfn} to {pfn}"
                                     )
                                     minio_repository.upload_file(
-                                        minio_repository.bucket,
-                                        pfn,
+                                        document_lfn,
                                         file_location,
                                     )
                                     logger.info(
@@ -168,7 +158,31 @@ async def scrape(
                 ],
             )
             try:
-                df.to_csv(outfile, encoding="utf-8")
+                outfile_lfn: LFN = LFN(
+                    protocol=protocol,
+                    tracer_id=job.tracer_id,
+                    job_id=job.id,
+                    source=DataSource.TELEGRAM,
+                    relative_path="data2_climate.csv",
+                )
+                if protocol == Protocol.LOCAL:
+                    pfn = f"data/{outfile_lfn.tracer_id}/{outfile_lfn.source.value}/{outfile_lfn.job_id}/{outfile_lfn.relative_path}"
+                    df.to_csv(pfn, encoding="utf-8")
+                    logger.info(f"{job.id}: Saved data to {pfn}")
+                elif protocol == Protocol.S3:
+                    with tempfile.NamedTemporaryFile() as tmp:
+                        df.to_csv(tmp.name, encoding="utf-8")
+                        minio_repository._upload_file(
+                            minio_repository.bucket,
+                            minio_repository.lfn_to_pfn(outfile_lfn),
+                            tmp.name,
+                        )
+                        logger.info(f"{job.id}: Uploaded data to {pfn}")
+                else:
+                    raise ValueError(f"Protocol {protocol} is not supported.")
+                job.output_lfns.append(outfile_lfn)
+                job.state = BaseJobState.FINISHED
+                job.touch()
             except:
                 logger.error(
                     f"{job.id}: Unable to save data to CSV file. Job {job} failed."
@@ -176,10 +190,6 @@ async def scrape(
                 job.state = BaseJobState.FAILED
                 job.messages.append("Status: FAILED. Unable to save data to CSV file. ")
                 job.touch()
-            logger.info(f"{job.id}: Saved data to {outfile}")
-            job.output_lfns.append(outfile_lfn)
-            job.state = BaseJobState.FINISHED
-            job.touch()
 
     except Exception as e:
         logger.error(f"{job.id}: Unable to scrape data. {e}. Job {job} failed.")

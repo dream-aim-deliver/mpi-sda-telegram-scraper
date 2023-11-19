@@ -1,6 +1,9 @@
 from enum import Enum
+import random
+import re
+import string
 from typing import List, TypeVar
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime
 
 
@@ -30,6 +33,17 @@ class LFN(BaseModel):
     job_id: int
     source: DataSource
     relative_path: str
+
+    @field_validator("relative_path")
+    def relative_path_must_be_alphanumberic_underscores_backslashes(cls, v):
+        marker = "sdamarker"
+        if marker not in v:
+            v = re.sub(r"[^a-zA-Z0-9_\./-]", "", v)
+            ext = v.split(".")[-1]
+            name = v.split(".")[0]
+            seed = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
+            v = f"{name}-{seed}-{marker}.{ext}"
+        return v
 
 
 class BaseJob(BaseModel):

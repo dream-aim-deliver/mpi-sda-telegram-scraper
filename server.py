@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import Field
 from typing import List
+from app.sdk.job_router import JobManagerFastAPIRouter
 from app.sdk.minio_gateway import MinIORepository
 from app.sdk.models import LFN, BaseJobState, DataSource, Protocol
 
@@ -32,35 +33,22 @@ MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minio")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minio123")
 MINIO_HOST = os.getenv("MINIO_HOST", "localhost")
 MINIO_PORT = os.getenv("MINIO_PORT", "9000")
-MINIO_BUCKET = os.getenv("MINIO_BUCKET", "mpi_sda_telegram_scraper")
+MINIO_BUCKET = os.getenv("MINIO_BUCKET", "mpi-sda-telegram-scraper")
+STORAGE_PROTOCOL_CONFIG = os.getenv("STORAGE_PROTOCOL", "S3")
+STORAGE_PROTOCOL = Protocol(STORAGE_PROTOCOL_CONFIG.lower())
 
+if not (STORAGE_PROTOCOL == Protocol.S3 or STORAGE_PROTOCOL == Protocol.LOCAL):
+    raise ValueError(
+        f"Invalid STORAGE_PROTOCOL: {STORAGE_PROTOCOL_CONFIG}. "
+        f"Valid values are: {Protocol.S3.value}, {Protocol.LOCAL.value}"
+    )
 
 app = FastAPI()
 app.job_manager = TelegramScraperJobManager()  # type: ignore
 
+job_manager_router = JobManagerFastAPIRouter(app)
+
 data_dir = os.path.join(os.path.dirname(__file__), "data")
-
-
-@app.get("/job")
-def list_all_jobs() -> List[TelegramScraperJob]:
-    job_manager: TelegramScraperJobManager = app.job_manager  # type: ignore
-    return job_manager.list_jobs()
-
-
-@app.post("/job")
-def create_job(
-    tracer_id: str, input_lfns: List[LFN] | None = None
-) -> TelegramScraperJob:
-    job_manager: TelegramScraperJobManager = app.job_manager  # type: ignore
-    job: TelegramScraperJob = job_manager.create_job(tracer_id)  # type: ignore
-    return job
-
-
-@app.get("/job/{job_id}")
-def get_job(job_id: int) -> TelegramScraperJob:
-    job_manager: TelegramScraperJobManager = app.job_manager  # type: ignore
-    job = job_manager.get_job(job_id)
-    return job
 
 
 @app.post("/job/{job_id}/start")

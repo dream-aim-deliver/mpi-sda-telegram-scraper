@@ -31,7 +31,7 @@ def test_minio_gateway_list_objects(minio: MinIORepository):
         f.seek(0)
         bucket_name = "test-bucket"
         object_name = "test-object"
-        minio.upload_file(bucket_name, object_name, f.name)
+        minio._upload_file(bucket_name, object_name, f.name)
         objects = minio.list_objects(bucket_name)
         assert object_name in objects
 
@@ -42,8 +42,8 @@ def test_download_file(minio: MinIORepository):
         f.seek(0)
         bucket_name = "test-bucket"
         object_name = "test-object"
-        minio.upload_file(bucket_name, object_name, f.name)
-        minio.download_file(bucket_name, object_name, f.name)
+        minio._upload_file(bucket_name, object_name, f.name)
+        minio._download_file(bucket_name, object_name, f.name)
         assert f.read() == b"test"
 
 
@@ -53,17 +53,47 @@ def test_lfn_to_pfn(minio: MinIORepository):
         tracer_id="test",
         job_id=1,
         source=DataSource.TELEGRAM,
-        relative_path="data2_climate.csv",
+        relative_path="root/data2_climate.csv",
     )
     pfn = minio.lfn_to_pfn(lfn)
-    assert pfn == "s3://localhost:9000/default/test/telegram/1/data2_climate.csv"
+    assert "root/data2_climate" in pfn
+    assert "-sdamarker" in pfn
+    assert "s3://localhost:9000/default/test/telegram/1/" in pfn
+    augmented_lfn = LFN(
+        protocol=Protocol.S3,
+        tracer_id="test",
+        job_id=1,
+        source=DataSource.TELEGRAM,
+        relative_path="root/data2_climate-sdamarker.csv",
+    )
+
+    pfn2 = minio.lfn_to_pfn(augmented_lfn)
+    assert (
+        pfn2
+        == f"s3://localhost:9000/default/test/telegram/1/root/data2_climate-sdamarker.csv"
+    )
 
 
 def test_pfn_to_lfn(minio: MinIORepository):
-    pfn = "s3://localhost:9000/default/test/telegram/1/data2_climate.csv"
+    pfn = "s3://localhost:9000/default/test/telegram/1/root/data2_climate-sdamarker.csv"
     lfn = minio.pfn_to_lfn(pfn)
     assert lfn.protocol == Protocol.S3
     assert lfn.tracer_id == "test"
     assert lfn.job_id == 1
     assert lfn.source == DataSource.TELEGRAM
-    assert lfn.relative_path == "data2_climate.csv"
+    assert lfn.relative_path == "root/data2_climate-sdamarker.csv"
+
+
+def test_pfn_to_object_name(minio: MinIORepository):
+    pfn = "s3://localhost:9000-default-test-telegram-1-root-data2_climate-sdamarker.csv"
+    object_name = minio.pfn_to_object_name(pfn)
+    assert object_name == "test-telegram-1-root-data2_climate-sdamarker.csv"
+
+
+def test_object_name_to_pfn(minio: MinIORepository):
+    object_name = "test-telegram-1-root-data2_climate-sdamarker.csv"
+    pfn = minio.object_name_to_pfn(object_name)
+    assert (
+        pfn
+        == "s3://localhost:9000-default-test-telegram-1-root-data2_climate-sdamarker.csv"
+    )
