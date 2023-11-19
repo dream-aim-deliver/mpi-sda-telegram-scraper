@@ -75,8 +75,7 @@ def start_job(job_id: int, background_tasks: BackgroundTasks):
         bucket=MINIO_BUCKET,
     )
     try:
-        minio_client: MinIORepository = minio_repository.get_client()
-        minio_client.create_bucket_if_not_exists(MINIO_BUCKET)
+        minio_repository.create_bucket_if_not_exists(MINIO_BUCKET)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to connect to MinIO: {e}")
 
