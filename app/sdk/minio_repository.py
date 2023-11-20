@@ -45,10 +45,15 @@ class MinIORepository:
         )
         return client
 
+    def log(self, message: str, level: int = logging.INFO) -> None:
+        message = f"MinIO Repository: {message}"
+        logger.log(level, message)
+
     def create_bucket_if_not_exists(self, bucket_name: str) -> None:
         if bucket_name in self.list_buckets():
             logger.info(f"MinIO Repository: Bucket {bucket_name} already exists.")
             return
+        self.log(f"Creating bucket {bucket_name}")
         client = self.get_client()
         client.make_bucket(bucket_name)
 
@@ -73,7 +78,17 @@ class MinIORepository:
         :param file_path: The path to the file to upload.
         """
         client = self.get_client()
-        client.fput_object(bucket_name, object_name, file_path)
+        self.log(
+            f"Uploading file {file_path} to object {object_name} in bucket {bucket_name}"
+        )
+        try:
+            client.fput_object(bucket_name, object_name, file_path)
+        except Exception as e:
+            self.log(
+                f"Failed to upload file {file_path} to object {object_name} in bucket {bucket_name}. {e}",
+                logging.ERROR,
+            )
+            raise e
 
     def _download_file(
         self, bucket_name: str, object_name: str, file_path: str
@@ -87,7 +102,17 @@ class MinIORepository:
         :param file_path: The path to the file to download to.
         """
         client = self.get_client()
-        client.fget_object(bucket_name, object_name, file_path)
+        self.log(
+            f"Downloading file {file_path} from object {object_name} in bucket {bucket_name}"
+        )
+        try:
+            client.fget_object(bucket_name, object_name, file_path)
+        except Exception as e:
+            self.log(
+                f"Failed to download file {file_path} from object {object_name} in bucket {bucket_name}. {e}",
+                logging.ERROR,
+            )
+            raise e
 
     def upload_file(self, lfn: LFN, file_path: str) -> None:
         """
@@ -123,6 +148,10 @@ class MinIORepository:
         """
         if lfn.protocol == Protocol.S3:
             return f"s3://{self.host}:{self.port}/{self.bucket}/{lfn.tracer_id}/{lfn.source.value}/{lfn.workflow_id}/{lfn.relative_path}"
+        self.log(
+            "Protocol {lfn.protocol} is not supported by MinIO Repository.",
+            logging.ERROR,
+        )
         raise ValueError(
             f"Protocol {lfn.protocol} is not supported by MinIO Repository. Cannot create a PFN for LFN {lfn}."
         )
@@ -136,6 +165,7 @@ class MinIORepository:
         :raises ValueError: If the PFN protocol is S3.
         :return: The LFN.
         """
+        self.log(f"Generating LFN for PFN {pfn}")
         if pfn.startswith(f"s3://{self.host}:{self.port}/{self.bucket}"):
             without_protocol = pfn.split("://")[1]
             path_components = without_protocol.split("/")[1:]
@@ -155,6 +185,7 @@ class MinIORepository:
                 workflow_id=job_id,
                 relative_path=relative_path,
             )
+            self.log(f"Generated LFN {lfn} for PFN {pfn}")
             return lfn
         raise ValueError(
             f"Path {pfn} is not supported by this MinIO Repository at {self.url}. Cannot create a LFN for PFN {pfn}."

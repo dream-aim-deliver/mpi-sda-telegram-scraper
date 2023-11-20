@@ -77,170 +77,156 @@ class DataPreparationWorkflowExecutor(BaseWorkflowExecutor):
             workflow=workflow, kernel_plankster=kernel_plankster, minio=minio
         )
         self.telegram_channel = telegram_channel
+        self.api_id = os.getenv("API_ID")
+        self.api_hash = os.getenv("API_HASH")
+        if self.api_id is None or self.api_hash is None:
+            raise ValueError("API_ID and API_HASH for telegram must be set.")
 
     async def run(self, *args, **kwargs):
         """
         This is where you will implement your workflow logic.
         """
         self.log(f"{self.workflow}")
+        # TIP: All I/O blocking operations should be done using async functions
         await asyncio.sleep(5)
-        self.kernel_plankster_gateway.ping()
+        # TIP: YOUR PIPELINE LOGIC GOES HERE
         await self.scrape_telegram()
-
+        # TODO: ADD TWITTER
+        # TIP: logging example
+        # TIP: You need to use AsyncIO tasks to run await Twitter and Telegram before running RAM's Data Augmentation script
+        # See: https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task
+        # TIP: Please restructure this code into multiple files to avoid a single file with 1000s of lines of code
         self.log(level=logging.INFO, message=f"Args: {args}")
         self.log(level=logging.INFO, message=f"Kwargs: {kwargs}")
 
     async def scrape_telegram(self):
-        try:
-            api_id = os.getenv("API_ID")
-            api_hash = os.getenv("API_HASH")
-            channel_name = self.telegram_channel
-            if api_id is None or api_hash is None:
-                raise ValueError("API_ID and API_HASH for telegram must be set.")
-            async with TelegramClient(
-                "sda-telegram-scraper", api_id, api_hash
-            ) as client:
-                # Set the job state to running
-                self.workflow.state = STATE.RUNNING
-                self.workflow.touch()
-
-                data = []
-                try:
-                    async for message in client.iter_messages(
-                        f"https://t.me/{channel_name}"
-                    ):
-                        ##################################################################
-                        # IF YOU CAN ALREADY VALIDATE YOUR DATA HERE
-                        # YOU MIGHT NOT NEED A LLM TO FIX ISSUES WITH THE DATA
-                        ##################################################################
-                        self.log(f"message: {message}")
-                        data.append(
-                            [
-                                message.sender_id,
-                                message.text,
-                                message.date,
-                                message.id,
-                                message.post_author,
-                                message.views,
-                                message.peer_id.channel_id,
-                            ]
-                        )
-
-                        # Check if the message has media (photo or video)
-                        if message.media:
-                            if hasattr(message.media, "photo"):
-                                # Download photo
-                                with tempfile.NamedTemporaryFile() as tmp:
-                                    self.log(f"Downloading photo to {tmp.name}")
-                                    file_location = await client.download_media(
-                                        message.media.photo,
-                                        file=tmp.name,
-                                    )
-                                    self.log(f"Downloaded photo: {file_location}")
-                                    media_lfn: LFN = LFN(
-                                        protocol=Protocol.S3,
-                                        tracer_id=self.workflow.tracer_key,
-                                        workflow_id=self.workflow.id,
-                                        source=DataSource.TELEGRAM,
-                                        relative_path=f"photos/{file_location}",
-                                    )
-                                    pfn = self.minio_repository.lfn_to_pfn(media_lfn)
-                                    self.log(f"uploading photo {media_lfn} to {pfn}")
-                                    self.minio_repository.upload_file(
-                                        media_lfn, tmp.name
-                                    )
-                                    self.log.info(
-                                        f"Uploaded photo {media_lfn} to {pfn}"
-                                    )
-                                    self.workflow.output_lfns.append(media_lfn)
-                                    self.workflow.output_lfns.append(document_lfn)
-                                    self.kernel_plankster_gateway.register_new_data(
-                                        knowledge_source=KnowledgeSourceEnum.TELEGRAM,
-                                        pfns=[
-                                            pfn,
-                                        ],
-                                    )
-                            elif hasattr(message.media, "document"):
-                                # Download video (or other documents)
-                                with tempfile.NamedTemporaryFile() as tmp:
-                                    file_location = await client.download_media(
-                                        message.media.document,
-                                        file=tmp.name,
-                                    )
-                                    self.logger.info(
-                                        f"Downloaded video: {file_location}"
-                                    )
-                                    document_lfn: LFN = LFN(
-                                        protocol=Protocol.S3,
-                                        tracer_id=self.workflow.tracer_key,
-                                        workflow_id=self.workflow.id,
-                                        source=DataSource.TELEGRAM,
-                                        relative_path=f"videos/{file_location}",
-                                    )
-
-                                    pfn = self.minio_repository.lfn_to_pfn(document_lfn)
-                                    self.logger.debug(
-                                        f" Uploading video {document_lfn} to {pfn}"
-                                    )
-                                    self.minio_repository.upload_file(
-                                        document_lfn,
-                                        file_location,
-                                    )
-                                    self.logger.info(
-                                        f"Uploaded video {document_lfn} to {pfn}"
-                                    )
-                                    self.workflow.output_lfns.append(document_lfn)
-                                    self.kernel_plankster_gateway.register_new_data(
-                                        knowledge_source=KnowledgeSourceEnum.TELEGRAM,
-                                        pfns=[
-                                            pfn,
-                                        ],
-                                    )
-                except Exception as error:
-                    self.logger.error(f"Unable to scrape data. {error}")
-                    self.workflow.state = STATE.FAILED
-                    self.workflow.messages.append(f"Status: FAILED. Unable to scrape data. {error}")  # type: ignore
-                    self.workflow.touch()
-                    # TODO: continue to scrape data if possible
-
-                # Save the data to a CSV file
-                df = pd.DataFrame(
-                    data,
-                    columns=[
-                        "message.sender_id",
-                        "message.text",
-                        "message.date",
-                        "message.id",
-                        "message.post_author",
-                        "message.views",
-                        "message.peer_id.channel_id",
-                    ],
+        channel_name = self.telegram_channel
+        async with TelegramClient(
+            "sda-telegram-scraper", self.api_id, self.api_hash
+        ) as client:
+            # TIP: Set the job state to running. Please update the state of the job as it progresses
+            self.workflow.state = STATE.RUNNING
+            data = []
+            async for message in client.iter_messages(f"https://t.me/{channel_name}"):
+                ##################################################################
+                # IF YOU CAN ALREADY VALIDATE YOUR DATA HERE
+                # YOU MIGHT NOT NEED A LLM TO FIX ISSUES WITH THE DATA
+                ##################################################################
+                data.append(
+                    [
+                        message.sender_id,
+                        message.text,
+                        message.date,
+                        message.id,
+                        message.post_author,
+                        message.views,
+                        message.peer_id.channel_id,
+                    ]
                 )
                 try:
-                    outfile_lfn: LFN = LFN(
-                        protocol=Protocol.S3,
-                        tracer_id=self.workflow.tracer_key,
-                        workflow_id=self.workflow.id,
-                        source=DataSource.TELEGRAM,
-                        relative_path="data2_climate.csv",
-                    )
-
-                    with tempfile.NamedTemporaryFile() as tmp:
-                        df.to_csv(tmp.name, encoding="utf-8")
-                        self.minio_repository.upload_file(outfile_lfn, tmp.name)
-                        self.log(f"Uploaded data to {pfn}")
-
-                    self.workflow.output_lfns.append(outfile_lfn)
-                    self.workflow.state = STATE.FINISHED
-                    self.workflow.touch()
-                except:
-                    self.log(f"Unable to save data to CSV file. FAILED!")
+                    if message.media and hasattr(message.media, "photo"):
+                        # Download photo
+                        with tempfile.NamedTemporaryFile() as tmp:
+                            self.log(f"Downloading photo to {tmp.name}")
+                            local_file = await client.download_media(
+                                message.media.photo,
+                                file=tmp.name,
+                            )
+                            self.log(f"Downloaded photo: {local_file}")
+                            media_lfn: LFN = LFN(
+                                protocol=Protocol.S3,
+                                tracer_id=self.workflow.tracer_key,
+                                workflow_id=self.workflow.id,
+                                source=DataSource.TELEGRAM,
+                                relative_path=f"photos/{message.media.photo.id}.jpg",
+                            )
+                            pfn = self.minio_repository.lfn_to_pfn(media_lfn)
+                            self.log(f"uploading photo {media_lfn} to {pfn}")
+                            self.minio_repository.upload_file(media_lfn, tmp.name)
+                            self.log.info(f"Uploaded photo {media_lfn} to {pfn}")
+                            self.workflow.output_lfns.append(media_lfn)
+                            self.workflow.output_lfns.append(document_lfn)
+                            self.kernel_plankster_gateway.register_new_data(
+                                knowledge_source=KnowledgeSourceEnum.TELEGRAM,
+                                pfns=[
+                                    pfn,
+                                ],
+                            )
+                    elif message.media and hasattr(message.media, "document"):
+                        # Download video (or other documents)
+                        with tempfile.NamedTemporaryFile() as tmp:
+                            local_file = await client.download_media(
+                                message.media.document,
+                                file=tmp.name,
+                            )
+                            mime_type = message.media.document.mime_type
+                            ext = mime_type.split("/")[1]
+                            document_lfn: LFN = LFN(
+                                protocol=Protocol.S3,
+                                tracer_id=self.workflow.tracer_key,
+                                workflow_id=self.workflow.id,
+                                source=DataSource.TELEGRAM,
+                                relative_path=f"document/{message.media.document.id}.{ext}",
+                            )
+                            self.minio_repository.upload_file(
+                                document_lfn,
+                                local_file,
+                            )
+                            self.kernel_plankster_gateway.register_new_data(
+                                knowledge_source=KnowledgeSourceEnum.TELEGRAM,
+                                pfns=[
+                                    pfn,
+                                ],
+                            )
+                            self.workflow.output_lfns.append(document_lfn)
+                except Exception as error:
+                    self.log(f"Unable to download media. {error}", level=logging.ERROR)
                     self.workflow.state = STATE.FAILED
                     self.workflow.messages.append(
-                        "Status: FAILED. Unable to save data to CSV file. "
+                        f"Status: FAILED. Unable to scrape data. {error}"
                     )
+                    continue
+            # Save the data to a CSV file
+            # MAYBE USE A DATAFRAME INSTEAD OF A LIST TO ORGANIZE THE DATA BETTER AS IT ARRIVES
+            df = pd.DataFrame(
+                data,
+                columns=[
+                    "message.sender_id",
+                    "message.text",
+                    "message.date",
+                    "message.id",
+                    "message.post_author",
+                    "message.views",
+                    "message.peer_id.channel_id",
+                ],
+            )
+            try:
+                outfile_lfn: LFN = LFN(
+                    protocol=Protocol.S3,
+                    tracer_id=self.workflow.tracer_key,
+                    workflow_id=self.workflow.id,
+                    source=DataSource.TELEGRAM,
+                    relative_path="data2_climate.csv",
+                )
 
-        except Exception as e:
-            self.log(f"Unable to scrape data. {e}.", level=logging.ERROR)
-            self.workflow.state = STATE.FAILED
-            self.workflow.messages.append(f"Status: FAILED. Unable to scrape data. {e}")
+                with tempfile.NamedTemporaryFile() as tmp:
+                    df.to_csv(tmp.name, encoding="utf-8")
+                    self.minio_repository.upload_file(outfile_lfn, tmp.name)
+                    self.log(f"Uploaded data to {pfn}")
+
+                self.workflow.output_lfns.append(outfile_lfn)
+                self.workflow.state = STATE.FINISHED
+                self.workflow.touch()
+            except:
+                self.log(f"Unable to save data to CSV file. FAILED!")
+                self.workflow.state = STATE.FAILED
+                self.workflow.messages.append(
+                    "Status: FAILED. Unable to save data to CSV file. "
+                )
+            finally:
+                if self.workflow.state == STATE.FAILED:
+                    self.log(f"Workflow failed. See messages for details.")
+                self.workflow.state == STATE.FINISHED
+                self.log(
+                    f"Telegram scraping finished successfully. Ready for next steps!."
+                )
