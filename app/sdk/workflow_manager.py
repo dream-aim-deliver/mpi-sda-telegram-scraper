@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway
 from app.sdk.minio_repository import MinIORepository
 from app.sdk.models import BaseWorkflow
-from app.sdk.workflow_executor import BaseWorkflowExecutor
+from app.sdk.workflow_executor import BaseWorkflowExecutor, workflow_executor_wrapper
 
 logger = logging.getLogger(__name__)
 
@@ -117,8 +117,9 @@ class BaseWorkflowManager:
         ):  # TIP: Here we are awaiting workflow completions
             try:
                 workflow = self._get_workflow(workflow_id)
+                executor = self.create_workflow_executor(workflow=workflow)
                 # self.execute_workflow(workflow=workflow)
-                background_tasks.add_task(self.execute_workflow, workflow=workflow)
+                background_tasks.add_task(workflow_executor_wrapper, id=1)
                 return workflow
             except KeyError:
                 raise HTTPException(

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
 import logging
+import time
 from typing import Any, List
 from fastapi import BackgroundTasks
 
@@ -13,6 +14,14 @@ from app.sdk.workflow_manager import BaseWorkflow
 
 
 logger = logging.getLogger(__name__)
+
+
+async def workflow_executor_wrapper(*args, **kwargs):
+    id = kwargs.get("id")
+    print(f"STARTING EXECUTION {id}")
+    time.sleep(60)
+    print("DONE DONE DONE")
+    # find an executor externally, constructor should take kwargs of the workflow
 
 
 class BaseWorkflowExecutor:
