@@ -51,7 +51,7 @@ class MinIORepository:
 
     def create_bucket_if_not_exists(self, bucket_name: str) -> None:
         if bucket_name in self.list_buckets():
-            logger.info(f"MinIO Repository: Bucket {bucket_name} already exists.")
+            self.log(f"MinIO Repository: Bucket {bucket_name} already exists.")
             return
         self.log(f"Creating bucket {bucket_name}")
         client = self.get_client()

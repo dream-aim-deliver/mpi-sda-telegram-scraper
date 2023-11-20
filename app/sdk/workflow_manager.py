@@ -139,7 +139,3 @@ class BaseWorkflowManager:
         raise NotImplementedError(
             "create_executor method must be implemented for your workflow!!"
         )
-
-    def execute_workflow(self, workflow: BaseWorkflow, *args, **kwargs):
-        executor = self.create_workflow_executor(workflow=workflow, **kwargs)
-        # executor._execute(workflow=workflow, *args, **kwargs)
