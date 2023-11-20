@@ -16,14 +16,6 @@ from app.sdk.workflow_manager import BaseWorkflow
 logger = logging.getLogger(__name__)
 
 
-async def workflow_executor_wrapper(*args, **kwargs):
-    id = kwargs.get("id")
-    print(f"STARTING EXECUTION {id}")
-    time.sleep(60)
-    print("DONE DONE DONE")
-    # find an executor externally, constructor should take kwargs of the workflow
-
-
 class BaseWorkflowExecutor:
     def __init__(
         self,

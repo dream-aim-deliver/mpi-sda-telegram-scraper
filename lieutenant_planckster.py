@@ -46,6 +46,7 @@ def create_app() -> FastAPI:
     )
     app.kernel_plankster = kernel_planckster_gateway  # type: ignore
     app.minio_repository = minio  # type: ignore
+    app.workflows = {}  # type: ignore
     return app
 
 

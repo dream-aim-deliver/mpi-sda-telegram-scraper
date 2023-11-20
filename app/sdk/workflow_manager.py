@@ -3,10 +3,11 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, BackgroundTasks, FastAPI, HTTPException, status, Depends
 from pydantic import BaseModel
+from app.placeholder_job import workflow_executor_wrapper
 from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway
 from app.sdk.minio_repository import MinIORepository
 from app.sdk.models import BaseWorkflow
-from app.sdk.workflow_executor import BaseWorkflowExecutor, workflow_executor_wrapper
+from app.sdk.workflow_executor import BaseWorkflowExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +21,9 @@ class BaseWorkflowManager:
         minio: MinIORepository,
     ) -> None:
         self._name: str = name
-        self._workflows: Dict[int, BaseWorkflow] = {}
         self._nonce: int = 0
         self._app = app
+        self._workflows: Dict[int, BaseWorkflow] = {}
         self._router = APIRouter(prefix=f"/{self._name}", tags=[self._name])
         self._kernel_planckster = kernel_plankster
         self._minio = minio
@@ -112,14 +113,14 @@ class BaseWorkflowManager:
             name="Execute a Workflow",
             response_model=BaseWorkflow,
         )
-        async def start_workflow(
+        def start_workflow(
             workflow_id: int, background_tasks: BackgroundTasks
         ):  # TIP: Here we are awaiting workflow completions
             try:
                 workflow = self._get_workflow(workflow_id)
                 executor = self.create_workflow_executor(workflow=workflow)
                 # self.execute_workflow(workflow=workflow)
-                background_tasks.add_task(workflow_executor_wrapper, id=1)
+                background_tasks.add_task(workflow_executor_wrapper, workflow=workflow)
                 return workflow
             except KeyError:
                 raise HTTPException(
