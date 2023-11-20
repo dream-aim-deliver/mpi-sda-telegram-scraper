@@ -3,7 +3,7 @@ from typing import Any, Callable, Dict, List, TypedDict
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway
-from app.sdk.minio_gateway import MinIORepository
+from app.sdk.minio_repository import MinIORepository
 
 from app.sdk.models import LFN, Protocol
 

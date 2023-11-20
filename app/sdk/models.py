@@ -2,12 +2,12 @@ from enum import Enum
 import random
 import re
 import string
-from typing import List, TypeVar
+from typing import Any, Dict, List, TypeVar
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime
 
 
-class BaseJobState(Enum):
+class STATE(Enum):
     CREATED = "created"
     RUNNING = "running"
     FINISHED = "finished"
@@ -30,7 +30,7 @@ class Protocol(Enum):
 class LFN(BaseModel):
     protocol: Protocol
     tracer_id: str
-    job_id: int
+    workflow_id: int
     source: DataSource
     relative_path: str
 
@@ -46,16 +46,29 @@ class LFN(BaseModel):
         return v
 
 
+class BaseWorkflow(BaseModel):
+    id: int
+    name: str
+    created_at: datetime = datetime.now()
+    heartbeat: datetime = datetime.now()
+    state: Enum = STATE.CREATED
+    tracer_key: str
+    job_args: Dict[str, Any] = {}
+    messages: List[str] = []
+    output_lfns: List[LFN] = []
+    input_lfns: List[LFN] = []
+
+    def touch(self) -> None:
+        self.heartbeat = datetime.now()
+
+
 class BaseJob(BaseModel):
     id: int
-    tracer_id: str = Field(
-        description="A unique identifier to trace jobs across the SDA runtime."
-    )
     created_at: datetime = datetime.now()
     heartbeat: datetime = datetime.now()
     name: str
     args: dict = {}
-    state: Enum = BaseJobState.CREATED
+    state: Enum = STATE.CREATED
     messages: List[str] = []
     output_lfns: List[LFN] = []
     input_lfns: List[LFN] = []
