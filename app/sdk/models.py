@@ -2,9 +2,16 @@ from enum import Enum
 import random
 import re
 import string
-from typing import List, TypeVar
+from typing import Any, Dict, List, TypeVar
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime
+
+
+class Status(Enum):
+    CREATED = "created"
+    RUNNING = "running"
+    FINISHED = "finished"
+    FAILED = "failed"
 
 
 class BaseJobState(Enum):
@@ -44,6 +51,21 @@ class LFN(BaseModel):
             seed = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
             v = f"{name}-{seed}-{marker}.{ext}"
         return v
+
+
+class BaseWorkflow(BaseModel):
+    id: int
+    name: str
+    created_at: datetime = datetime.now()
+    heartbeat: datetime = datetime.now()
+    tracer_key: str
+    job_args: Dict[str, Any] = {}
+    messages: List[str] = []
+    output_lfns: List[LFN] = []
+    input_lfns: List[LFN] = []
+
+    def touch(self) -> None:
+        self.heartbeat = datetime.now()
 
 
 class BaseJob(BaseModel):

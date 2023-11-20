@@ -29,7 +29,6 @@ class BaseWorkflowManager:
     def create_job(self, *args, **kwargs) -> BaseJob:
         return BaseJob(id=random.randint(0, 1000), workflow=self._name, job_args=kwargs)
 
-    def 
     def create_job_route(self):
         @self._router.post(
             f"/",
