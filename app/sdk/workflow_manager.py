@@ -113,14 +113,15 @@ class BaseWorkflowManager:
             name="Execute a Workflow",
             response_model=BaseWorkflow,
         )
-        def start_workflow(
+        async def start_workflow(
             workflow_id: int, background_tasks: BackgroundTasks
         ):  # TIP: Here we are awaiting workflow completions
             try:
                 workflow = self._get_workflow(workflow_id)
                 executor = self.create_workflow_executor(workflow=workflow)
                 # self.execute_workflow(workflow=workflow)
-                background_tasks.add_task(workflow_executor_wrapper, workflow=workflow)
+                background_tasks.add_task(executor.run, workflow=workflow)
+                # background_tasks.add_task(workflow_executor_wrapper, workflow=workflow)
                 return workflow
             except KeyError:
                 raise HTTPException(
@@ -139,6 +140,6 @@ class BaseWorkflowManager:
             "create_executor method must be implemented for your workflow!!"
         )
 
-    async def execute_workflow(self, workflow: BaseWorkflow, *args, **kwargs):
+    def execute_workflow(self, workflow: BaseWorkflow, *args, **kwargs):
         executor = self.create_workflow_executor(workflow=workflow, **kwargs)
-        await executor._execute(*args, **kwargs)
+        # executor._execute(workflow=workflow, *args, **kwargs)

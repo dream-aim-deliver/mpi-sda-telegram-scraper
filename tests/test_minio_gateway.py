@@ -41,7 +41,7 @@ def test_upload_download_file(minio: MinIORepository):
     lfn = LFN(
         protocol=Protocol.S3,
         tracer_id="test",
-        job_id=1,
+        workflow_id=1,
         source=DataSource.TELEGRAM,
         relative_path="root/data2_climate-sdamarker.txt",
     )
@@ -67,7 +67,7 @@ def test_lfn_to_pfn(minio: MinIORepository):
     lfn = LFN(
         protocol=Protocol.S3,
         tracer_id="test",
-        job_id=1,
+        workflow_id=1,
         source=DataSource.TELEGRAM,
         relative_path="root/data2_climate.csv",
     )
@@ -78,7 +78,7 @@ def test_lfn_to_pfn(minio: MinIORepository):
     augmented_lfn = LFN(
         protocol=Protocol.S3,
         tracer_id="test",
-        job_id=1,
+        workflow_id=1,
         source=DataSource.TELEGRAM,
         relative_path="root/data2_climate-sdamarker.csv",
     )
@@ -95,7 +95,7 @@ def test_pfn_to_lfn(minio: MinIORepository):
     lfn = minio.pfn_to_lfn(pfn)
     assert lfn.protocol == Protocol.S3
     assert lfn.tracer_id == "test"
-    assert lfn.job_id == 1
+    assert lfn.workflow_id == 1
     assert lfn.source == DataSource.TELEGRAM
     assert lfn.relative_path == "root/data2_climate-sdamarker.csv"
 

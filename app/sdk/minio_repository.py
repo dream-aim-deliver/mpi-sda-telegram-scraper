@@ -122,7 +122,7 @@ class MinIORepository:
         :return: The PFN.
         """
         if lfn.protocol == Protocol.S3:
-            return f"s3://{self.host}:{self.port}/{self.bucket}/{lfn.tracer_id}/{lfn.source.value}/{lfn.job_id}/{lfn.relative_path}"
+            return f"s3://{self.host}:{self.port}/{self.bucket}/{lfn.tracer_id}/{lfn.source.value}/{lfn.workflow_id}/{lfn.relative_path}"
         raise ValueError(
             f"Protocol {lfn.protocol} is not supported by MinIO Repository. Cannot create a PFN for LFN {lfn}."
         )
@@ -152,7 +152,7 @@ class MinIORepository:
                 protocol=Protocol.S3,
                 tracer_id=tracer_id,
                 source=source,
-                job_id=job_id,
+                workflow_id=job_id,
                 relative_path=relative_path,
             )
             return lfn

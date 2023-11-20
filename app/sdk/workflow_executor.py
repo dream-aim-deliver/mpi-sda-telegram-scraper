@@ -16,7 +16,7 @@ from app.sdk.workflow_manager import BaseWorkflow
 logger = logging.getLogger(__name__)
 
 
-class BaseWorkflowExecutor:
+class BaseWorkflowExecutor(BackgroundTasks):
     def __init__(
         self,
         workflow: BaseWorkflow,
@@ -57,12 +57,13 @@ class BaseWorkflowExecutor:
             "No implementation avialble to execute the workflow!!"
         )
 
-    async def _execute(self, *args, **kwargs):
-        # self.log("Starting workflow execution")
-        # self.log(f"{self.workflow}")
-        await self.run(*args, **kwargs)
-        # self.log("Workflow execution finished")
-        # self.log(f"{self.workflow}")
+    def _execute(self, *args, **kwargs):
+        self.log("Starting workflow execution")
+        self.log(f"{self.workflow}")
+        # await self.run(*args, **kwargs)
+        # self.add_task(self.run, *args, **kwargs)
+        self.log("Workflow execution finished")
+        self.log(f"{self.workflow}")
 
     def log(self, message: str, level=logging.INFO):
         msg = f"[{self.tracer_key}] {message}"

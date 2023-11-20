@@ -7,14 +7,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime
 
 
-class Status(Enum):
-    CREATED = "created"
-    RUNNING = "running"
-    FINISHED = "finished"
-    FAILED = "failed"
-
-
-class BaseJobState(Enum):
+class STATE(Enum):
     CREATED = "created"
     RUNNING = "running"
     FINISHED = "finished"
@@ -37,7 +30,7 @@ class Protocol(Enum):
 class LFN(BaseModel):
     protocol: Protocol
     tracer_id: str
-    job_id: int
+    workflow_id: int
     source: DataSource
     relative_path: str
 
@@ -58,6 +51,7 @@ class BaseWorkflow(BaseModel):
     name: str
     created_at: datetime = datetime.now()
     heartbeat: datetime = datetime.now()
+    state: Enum = STATE.CREATED
     tracer_key: str
     job_args: Dict[str, Any] = {}
     messages: List[str] = []
@@ -74,7 +68,7 @@ class BaseJob(BaseModel):
     heartbeat: datetime = datetime.now()
     name: str
     args: dict = {}
-    state: Enum = BaseJobState.CREATED
+    state: Enum = STATE.CREATED
     messages: List[str] = []
     output_lfns: List[LFN] = []
     input_lfns: List[LFN] = []

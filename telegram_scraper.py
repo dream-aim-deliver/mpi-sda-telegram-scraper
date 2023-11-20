@@ -3,9 +3,9 @@ import logging
 import shutil
 import pandas as pd  # type: ignore
 from telethon.sync import TelegramClient
-from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway  # type: ignore
+from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway, KnowledgeSourceEnum  # type: ignore
 from app.sdk.minio_repository import MinIORepository
-from app.sdk.models import LFN, BaseJob, BaseJobState, DataSource, Protocol
+from app.sdk.models import LFN, BaseJob, STATE, DataSource, Protocol
 
 import tempfile
 
@@ -35,7 +35,7 @@ async def scrape(
             logger.info(f"{job.id}: Starting Job {job}")
 
             # Set the job state to running
-            job.state = BaseJobState.RUNNING
+            job.state = STATE.RUNNING
             job.touch()
 
             data = []
@@ -78,7 +78,7 @@ async def scrape(
                                 media_lfn: LFN = LFN(
                                     protocol=protocol,
                                     tracer_id=job.tracer_id,
-                                    job_id=job.id,
+                                    workflow_id=job.id,
                                     source=DataSource.TELEGRAM,
                                     relative_path=f"photos",
                                 )
@@ -92,7 +92,7 @@ async def scrape(
                                         f"{job.id}: Uploaded photo {media_lfn} to {pfn}"
                                     )
                                 elif protocol == Protocol.LOCAL:
-                                    pfn = f"data/{media_lfn.tracer_id}/{media_lfn.source.value}/{media_lfn.job_id}/{media_lfn.relative_path}"
+                                    pfn = f"data/{media_lfn.tracer_id}/{media_lfn.source.value}/{media_lfn.workflow_id}/{media_lfn.relative_path}"
                                     logger.debug(
                                         f" {job.id}:Saving photo {media_lfn} locally to {pfn}"
                                     )
@@ -117,7 +117,7 @@ async def scrape(
                                 document_lfn: LFN = LFN(
                                     protocol=protocol,
                                     tracer_id=job.tracer_id,
-                                    job_id=job.id,
+                                    workflow_id=job.id,
                                     source=DataSource.TELEGRAM,
                                     relative_path="videos",
                                 )
@@ -134,7 +134,7 @@ async def scrape(
                                         f"{job.id}: Uploaded video {document_lfn} to {pfn}"
                                     )
                                 elif protocol == Protocol.LOCAL:
-                                    pfn = f"data/{document_lfn.tracer_id}/{document_lfn.source.value}/{document_lfn.job_id}/{document_lfn.relative_path}"
+                                    pfn = f"data/{document_lfn.tracer_id}/{document_lfn.source.value}/{document_lfn.workflow_id}/{document_lfn.relative_path}"
                                     logger.debug(
                                         f"{job.id}: Saving video {document_lfn} locally to {pfn}"
                                     )
@@ -146,6 +146,7 @@ async def scrape(
                                 job.output_lfns.append(document_lfn)
                                 job.touch()
                                 kernel_planckster.register_new_data(
+                                    knowledge_source=KnowledgeSourceEnum.TELEGRAM,
                                     pfns=[
                                         pfn,
                                     ],
@@ -154,7 +155,7 @@ async def scrape(
                 logger.error(
                     f"{job.id}: Unable to scrape data. {error}. Job {job} failed."
                 )
-                job.state = BaseJobState.FAILED
+                job.state = STATE.FAILED
                 job.messages.append(f"Status: FAILED. Unable to scrape data. {error}")  # type: ignore
                 job.touch()
                 # TODO: continue to scrape data if possible
@@ -176,12 +177,12 @@ async def scrape(
                 outfile_lfn: LFN = LFN(
                     protocol=protocol,
                     tracer_id=job.tracer_id,
-                    job_id=job.id,
+                    workflow_id=job.id,
                     source=DataSource.TELEGRAM,
                     relative_path="data2_climate.csv",
                 )
                 if protocol == Protocol.LOCAL:
-                    pfn = f"data/{outfile_lfn.tracer_id}/{outfile_lfn.source.value}/{outfile_lfn.job_id}/{outfile_lfn.relative_path}"
+                    pfn = f"data/{outfile_lfn.tracer_id}/{outfile_lfn.source.value}/{outfile_lfn.workflow_id}/{outfile_lfn.relative_path}"
                     df.to_csv(pfn, encoding="utf-8")
                     logger.info(f"{job.id}: Saved data to {pfn}")
                 elif protocol == Protocol.S3:
@@ -196,17 +197,17 @@ async def scrape(
                 else:
                     raise ValueError(f"Protocol {protocol} is not supported.")
                 job.output_lfns.append(outfile_lfn)
-                job.state = BaseJobState.FINISHED
+                job.state = STATE.FINISHED
                 job.touch()
             except:
                 logger.error(
                     f"{job.id}: Unable to save data to CSV file. Job {job} failed."
                 )
-                job.state = BaseJobState.FAILED
+                job.state = STATE.FAILED
                 job.messages.append("Status: FAILED. Unable to save data to CSV file. ")
                 job.touch()
 
     except Exception as e:
         logger.error(f"{job.id}: Unable to scrape data. {e}. Job {job} failed.")
-        job.state = BaseJobState.FAILED
+        job.state = STATE.FAILED
         job.messages.append(f"Status: FAILED. Unable to scrape data. {e}")
