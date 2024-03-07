@@ -8,10 +8,26 @@ from app.sdk.minio_gateway import MinIORepository
 from app.sdk.models import LFN, BaseJob, BaseJobState, DataSource, Protocol
 
 import tempfile
+from typing import Literal
+from openai import OpenAI
+from pydantic import BaseModel
+import os
+import instructor
 
 
 logger = logging.getLogger(__name__)
 
+
+class messageData(BaseModel):
+    city: str
+    country: str
+    year: int
+    month: Literal['January', 'Febuary', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    day: Literal['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31']
+    disaster_type: str
+    
+class filterData(BaseModel):
+    relevant: bool
 
 async def scrape(
     job: BaseJob,
@@ -20,6 +36,10 @@ async def scrape(
     protocol: Protocol = Protocol.S3,
 ) -> None:
     try:
+        filter = "forest wildfire"    
+        # Enables `response_model`
+        client = instructor.patch(OpenAI())
+
         api_id = os.getenv("API_ID")
         api_hash = os.getenv("API_HASH")
         if "channel_name" not in job.args:
@@ -44,9 +64,50 @@ async def scrape(
                     f"https://t.me/{channel_name}"
                 ):
                     ##################################################################
-                    # IF YOU CAN ALREADY VALIDATE YOUR DATA HERE
-                    # YOU MIGHT NOT NEED A LLM TO FIX ISSUES WITH THE DATA
+                    # Data validation with LLM
                     ##################################################################
+                    
+                    filter_data = client.chat.completions.create(
+                    model="gpt-4",
+                    response_model=filterData,
+                    messages=[
+                        {
+                        "role": "user", 
+                        "content": f"Examine this post: {message.text}. Is this post describing {filter}? "
+                            },
+                        ]
+                    )
+                    
+                    if filter_data.relevant == True:
+                    
+                        aug_data = client.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            response_model=messageData,
+                            messages=[
+                                {
+                                "role": "user", 
+                                "content": f"Extract: {message.text}"
+                                },
+                            ]
+                        )
+                    
+                        city = aug_data.city
+                        country = aug_data.country
+                        year = aug_data.year
+                        month = aug_data.month
+                        day = aug_data.day
+                        disaster_type = aug_data.disaster_type
+                        
+                        backtrace = message.text #maybe replace with ID system
+                        
+                        location_obj = [[city, country], [backtrace]]
+                        date_obj = [[day, month, year], [backtrace]]
+                        event = [[disaster_type], [backtrace]]
+                
+                        ##################################################################
+                        # Publish these to kafka topics
+                        ##################################################################
+                    
                     logger.info(f"message: {message}")
                     data.append(
                         [

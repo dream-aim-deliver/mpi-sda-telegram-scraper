@@ -15,5 +15,6 @@ docker run --rm \
     -e HOSTNAME=localhost \
     -e PORT=8080 \
     -p 8080:8080 \
+    -e OPENAI_API_KEY=~~~~~~~~~~~~~~~~~~~~~ \
     mpi-telegram-scraper
 ```
