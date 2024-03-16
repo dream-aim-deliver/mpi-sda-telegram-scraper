@@ -51,6 +51,7 @@ class MinIORepository:
             return
         client = self.get_client()
         client.make_bucket(bucket_name)
+        logger.info(f"MinIO Repository: Created bucket \"{bucket_name}\".")
 
     def list_buckets(self) -> list[str]:
         client = self.get_client()

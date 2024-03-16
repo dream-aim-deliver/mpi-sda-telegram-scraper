@@ -45,6 +45,9 @@ class LFN(BaseModel):
             v = f"{name}-{seed}-{marker}.{ext}"
         return v
 
+    def __str__(self):
+        return f"{self.protocol.value}://{self.tracer_id}/{self.source.value}/{self.job_id}/{self.relative_path}"
+
 
 class BaseJob(BaseModel):
     id: int
@@ -65,3 +68,19 @@ class BaseJob(BaseModel):
 
 
 TBaseJob = TypeVar("TBaseJob", bound=BaseJob)
+
+
+class JobOutput(BaseModel):
+    """
+    This class is used to represent the output of a scraper job.
+
+    Attributes:
+    - job_state: BaseJobState
+    - trace_id: str
+    - lfns: List[LFN]
+    """
+
+    job_state: BaseJobState
+    tracer_id: str
+    lfns: List[LFN] | None
+
