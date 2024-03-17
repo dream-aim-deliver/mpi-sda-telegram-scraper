@@ -17,7 +17,7 @@ Now you can run the main scraper script with the following command.
 All parameters have the default values stated below:
 
 ```bash
-docker exec -it mpi-telegram-scraper python3 telegram_scraper.py --log-level=WARNING --job_id=1 --tracer_id="1" --channel_name="sda_test"
+docker exec -it mpi-telegram-scraper python3 telegram_scraper.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="sda_test"
 ```
 
 Change `--log-level` to `INFO` to see more detailed logs.
@@ -60,7 +60,7 @@ docker compose -f minio-docker-compose.yml up -d
 
 After doing the setup, you can now execute the main scraper script. All parameters are optional, and below are the default values:
 ```bash
-python3 telegram_scraper.py --log-level=WARNING --job_id=1 --tracer_id="1" --channel_name="sda_test"
+python3 telegram_scraper.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="sda_test"
 ```
 
 If everything is set up correctly, the Telegram client will send a verification code to the phone number you provided. You will need to enter this code in the terminal to continue.
@@ -92,7 +92,7 @@ docker run --rm \
 And now, to run the main scraper script:
 
 ```bash
-docker exec -it mpi-telegram-scraper python3 telegram_scraper.py --log-level=WARNING --job_id=1 --tracer_id="1" --channel_name="sda_test"
+docker exec -it mpi-telegram-scraper python3 telegram_scraper.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="sda_test"
 ```
 
 Change `--log-level` to `INFO` to see more detailed logs.

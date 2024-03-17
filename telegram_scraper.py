@@ -18,7 +18,7 @@ last_successful_lfn: LFN | None = None
 logger = logging.getLogger(__name__)
 
 
-def _kernel_planckster_setup(
+def _setup_kernel_planckster(
     job_id: int,
 ) -> KernelPlancksterGateway:
 
@@ -52,7 +52,7 @@ def _kernel_planckster_setup(
         raise error
 
 
-def _minio_repository_setup(
+def _setup_minio_repository(
     job_id: int,
 ) -> MinIORepository:
         
@@ -91,7 +91,7 @@ def _minio_repository_setup(
         raise error
 
 
-def _telegram_client_setup(
+def _setup_telegram_client(
     job_id: int,
 ) -> TelegramClient:
     try:
@@ -153,7 +153,7 @@ def _setup(
             dotenv_path=".env",
         ) 
 
-        kernel_planckster = _kernel_planckster_setup(job_id)
+        kernel_planckster = _setup_kernel_planckster(job_id)
 
         # Check protocol and setup the MinIO Repository if using s3
         # s3 by default
@@ -168,9 +168,9 @@ def _setup(
 
         minio_repository = None
         if protocol == Protocol.S3:
-            minio_repository = _minio_repository_setup(job_id)
+            minio_repository = _setup_minio_repository(job_id)
 
-        telegram_client = _telegram_client_setup(job_id)
+        telegram_client = _setup_telegram_client(job_id)
 
         return kernel_planckster, protocol, minio_repository, telegram_client
 
@@ -191,11 +191,6 @@ async def _scrape(
 
 
     try:
-
-        if not all([channel_name, tracer_id]):
-            logger.error(f"{job_id}: channel_name and tracer_id must be set.")
-            raise ValueError("channel_name and tracer_id must be set.")
-
 
         output_lfns: List[LFN] = []
         async with telegram_client as client:
@@ -434,7 +429,13 @@ def main(
     log_level: str = "WARNING",
 ) -> None:
 
+
     logging.basicConfig(level=log_level)
+
+    if not all([job_id, channel_name, tracer_id]):
+        logger.error(f"{job_id}: job_id, tracer_id, and channel_name must all be set.")
+        raise ValueError("job_id, tracer_id, and channel_name must all be set.")
+
 
     kernel_planckster, protocol, minio_repository, telegram_client = _setup(job_id)
 
@@ -455,6 +456,7 @@ def main(
             telegram_client=telegram_client,
         )
     )
+
     loop.close()
 
 
@@ -465,22 +467,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scrape data from a telegram channel.")
 
     parser.add_argument(
-        "--job_id",
+        "--job-id",
         type=str,
         default="1",
         help="The job id",
     )
 
     parser.add_argument(
-        "--channel_name",
+        "--channel-name",
         type=str,
-        #default="GCC_report",
-        default="sda_test",
+        default="GCC_report",
         help="The channel name",
     )
 
     parser.add_argument(
-        "--tracer_id",
+        "--tracer-id",
         type=str,
         default="1",
         help="The tracer id",
