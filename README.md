@@ -17,7 +17,7 @@ Now you can run the main scraper script with the following command.
 All parameters have the default values stated below:
 
 ```bash
-docker exec -it mpi-telegram-scraper python3 telegram_scraper.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="sda_test"
+docker exec -it mpi-telegram-scraper python3 telegram_scraper.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="GCC_report"
 ```
 
 Change `--log-level` to `INFO` to see more detailed logs.
@@ -36,23 +36,18 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. If you wish to test the scraper with a minIO instance, you can start a test minIO container using the docker-compose file in the root directory
-```bash
-docker compose -f minio-docker-compose.yml up -d
-```
-
-3. Start a kernel-planckster instance:
+2. Start a kernel-planckster instance:
     - Clone the [kernel-planckster](https://github.com/dream-aim-deliver/kernel-planckster) repo elsewhere
     - Install the required packages, preferable in its own virtual environment, following the instructions in the README
-    - Run it in dev mode following the README, where you'll find the host and port
+    - Run it in dev mode with a object store following the README (e.g., `poetry run dev --storage`), where you'll find the host, port, auth key and schema (they should match this repo's `.env.example` file)
 
-4. Obtain the following credentials from [Telegram](https://core.telegram.org/api/obtaining_api_id): api ID, and api hash. You will also need the phone number and a password of the account you want to use for scraping. **IMPORTANT**: You will need access to the phone you provided, as Telegram will send a verification code to it.
+3. Obtain the following credentials from [Telegram](https://core.telegram.org/api/obtaining_api_id): api ID, and api hash. You will also need the phone number and a password of the account you want to use for scraping. **IMPORTANT**: You will need access to the phone you provided, as Telegram will send a verification code to it.
 
-5. Copy the `.env.example` file to `.env` and fill in the required fields.
+4. Copy the `.env.example` file to `.env` and fill in the required fields.
     - For `KERNEL_PLANCKSTER_*`, get them from the kernel-planckster README or the instance you started in step 3
-    - You can choose the storage protocol to use:
-        + `s3` for minIO, will require the `MINIO_*` fields that you can get, for example, from the `minio-docker-compose.yml` file
-        + `local` for local storage, will create a `data` directory in the root of the project and store the files there
+    - You can choose the `STORAGE_PROTOCOL` to use:
+        + `s3`
+        + `local` for local storage, will create a `data` directory in the root of the project and store the files there. DEPRECATED: use `s3` with Kernel Planckster running on the side
     - The `TELEGRAM_*` fields are the credentials you obtained in step 4
 
 
@@ -60,7 +55,7 @@ docker compose -f minio-docker-compose.yml up -d
 
 After doing the setup, you can now execute the main scraper script. All parameters are optional, and below are the default values:
 ```bash
-python3 telegram_scraper.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="sda_test"
+python3 telegram_scraper.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="GCC_report"
 ```
 
 If everything is set up correctly, the Telegram client will send a verification code to the phone number you provided. You will need to enter this code in the terminal to continue.

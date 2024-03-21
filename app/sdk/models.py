@@ -1,8 +1,8 @@
 from enum import Enum
-import random
+import os
 import re
-import string
 from typing import List, TypeVar
+import uuid
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime
 
@@ -14,39 +14,69 @@ class BaseJobState(Enum):
     FAILED = "failed"
 
 
-class DataSource(Enum):
+class KnowledgeSourceEnum(Enum):
     TWITTER = "twitter"
     TELEGRAM = "telegram"
     SENTINEL = "sentinel"
     AUGMENTED_DATA = "augmented_data"
 
 
-class Protocol(Enum):
+class ProtocolEnum(Enum):
+    """
+    The storage protocol to use for a file.
+
+    Attributes:
+    - S3: S3
+    - LOCAL: Local  @deprecated
+    """
     S3 = "s3"
-    ES = "es"
     LOCAL = "local"
 
 
 class LFN(BaseModel):
-    protocol: Protocol
+    """
+    Synchronize this with Kernel Planckster's LFN model, so that this client generates valid requests.
+
+    Attributes:
+    - protocol: ProtocolEnum
+    - tracer_id: str
+    - job_id: int
+    - source: KnowledgeSourceEnum
+    - relative_path: str
+    """
+    protocol: ProtocolEnum
     tracer_id: str
     job_id: int
-    source: DataSource
+    source: KnowledgeSourceEnum
     relative_path: str
 
     @field_validator("relative_path")
-    def relative_path_must_be_alphanumberic_underscores_backslashes(cls, v):
+    def relative_path_must_be_alphanumberic_underscores_backslashes(cls, v: str) -> str:
         marker = "sdamarker"
         if marker not in v:
+            v = os.path.basename(v)  # Take just the basename, saner for the object stores
             v = re.sub(r"[^a-zA-Z0-9_\./-]", "", v)
             ext = v.split(".")[-1]
-            name = v.split(".")[0]
-            seed = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
+            name = v.split(".")[0]  # this completely removes dots
+            seed = f"{uuid.uuid4()}".replace("-", "")
             v = f"{name}-{seed}-{marker}.{ext}"
         return v
 
-    def __str__(self):
-        return f"{self.protocol.value}://{self.tracer_id}/{self.source.value}/{self.job_id}/{self.relative_path}"
+    def to_json(cls) -> str:
+        """
+        Dumps the model to a json formatted string. Wrapper around pydantic's model_dump_json method: in case they decide to deprecate it, we only refactor here.
+        """
+        return cls.model_dump_json()
+
+    def __str__(self) -> str:
+        return self.to_json()
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "LFN":
+        """
+        Loads the model from a json formatted string. Wrapper around pydantic's model_validate_json method: in case they decide to deprecate it, we only refactor here.
+        """
+        return cls.model_validate_json(json_data=json_str)
 
 
 class BaseJob(BaseModel):

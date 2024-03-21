@@ -3,9 +3,9 @@ from typing import Any, Callable, Dict, List, TypedDict
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway
-from app.sdk.minio_gateway import MinIORepository
+from app.sdk.file_repository import MinIORepository
 
-from app.sdk.models import LFN, Protocol
+from app.sdk.models import LFN, ProtocolEnum
 
 
 class JobManagerFastAPIRouter:
@@ -22,8 +22,8 @@ class JobManagerFastAPIRouter:
         MINIO_BUCKET = os.getenv("MINIO_BUCKET")
         STORAGE_PROTOCOL_CONFIG = os.getenv("STORAGE_PROTOCOL", "S3")
 
-        self.STORAGE_PROTOCOL = Protocol(STORAGE_PROTOCOL_CONFIG.lower())
-        if self.STORAGE_PROTOCOL == Protocol.S3:
+        self.STORAGE_PROTOCOL = ProtocolEnum(STORAGE_PROTOCOL_CONFIG.lower())
+        if self.STORAGE_PROTOCOL == ProtocolEnum.S3:
             if not (
                 MINIO_ACCESS_KEY
                 and MINIO_SECRET_KEY
@@ -85,7 +85,7 @@ class JobManagerFastAPIRouter:
                 job = job_manager.get_job(job_id)
             except KeyError:
                 raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-            if self.STORAGE_PROTOCOL == Protocol.S3:
+            if self.STORAGE_PROTOCOL == ProtocolEnum.S3:
                 try:
                     bucket = self.minio_repository.bucket
                     self.minio_repository.create_bucket_if_not_exists(bucket)

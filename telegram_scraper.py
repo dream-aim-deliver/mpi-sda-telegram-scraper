@@ -1,12 +1,10 @@
 import os
 import logging
-import shutil
 from typing import List, Tuple
-import pandas as pd  # type: ignore
 from telethon.sync import TelegramClient
 from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway  # type: ignore
-from app.sdk.minio_gateway import MinIORepository
-from app.sdk.models import LFN, BaseJobState, DataSource, Protocol, JobOutput
+from app.sdk.file_repository import FileRepository
+from app.sdk.models import LFN, BaseJobState, KnowledgeSourceEnum, ProtocolEnum, JobOutput
 from dotenv import load_dotenv
 
 import tempfile
@@ -52,42 +50,29 @@ def _setup_kernel_planckster(
         raise error
 
 
-def _setup_minio_repository(
+def _setup_file_repository(
     job_id: int,
-) -> MinIORepository:
+    storage_protocol: ProtocolEnum,
+) -> FileRepository:
         
     try:
-        logger.info(f"{job_id}: Setting up MinIO Repository.")
-        
-        # Check environment variables for the MinIO Repository
-        minio_host = os.getenv("MINIO_HOST")
-        minio_port = os.getenv("MINIO_PORT")
-        minio_access_key = os.getenv("MINIO_ACCESS_KEY")
-        minio_secret_key = os.getenv("MINIO_SECRET_KEY")
-        minio_bucket = os.getenv("MINIO_BUCKET")
+        logger.info(f"{job_id}: Setting up the File Repository.")
 
-        if not all([minio_host, minio_port, minio_access_key, minio_secret_key, minio_bucket]):
-            logger.error(f"{job_id}: MINIO_HOST, MINIO_PORT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY and MINIO_BUCKET must all be set.")
-            raise ValueError("MINIO_HOST, MINIO_PORT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY and MINIO_BUCKET must be set.")
+        if not storage_protocol:
+            logger.error(f"{job_id}: STORAGE_PROTOCOL must be set.")
+            raise ValueError("STORAGE_PROTOCOL must be set.")
 
         # Setup the MinIO Repository and create the bucket if it does not exist
-        minio_repository = MinIORepository(
-            host=minio_host,
-            port=minio_port,
-            access_key=minio_access_key,
-            secret_key=minio_secret_key,
-            bucket=minio_bucket,
+        file_repository = FileRepository(
+            protocol=storage_protocol,
         )
 
-        logger.info(f"{job_id}: Creating bucket {minio_repository.bucket} if it does not exist.")
-        minio_repository.create_bucket_if_not_exists(minio_repository.bucket)
+        logger.info(f"{job_id}: File Repository setup successfully.")
 
-        logger.info(f"{job_id}: MinIO Repository setup successfully.")
-
-        return minio_repository
+        return file_repository
     
     except Exception as error:
-        logger.error(f"{job_id}: Unable to setup the MinIO Repository. Error:\n{error}")
+        logger.error(f"{job_id}: Unable to setup the File Repository. Error:\n{error}")
         raise error
 
 
@@ -145,7 +130,7 @@ def _setup_telegram_client(
 
 def _setup(
     job_id: int,
-) -> Tuple[KernelPlancksterGateway, Protocol, MinIORepository | None, TelegramClient]:
+) -> Tuple[KernelPlancksterGateway, ProtocolEnum, FileRepository, TelegramClient]:
 
     try:
 
@@ -155,24 +140,21 @@ def _setup(
 
         kernel_planckster = _setup_kernel_planckster(job_id)
 
-        # Check protocol and setup the MinIO Repository if using s3
-        # s3 by default
+        # Check protocol
         logger.info(f"{job_id}: Checking storage protocol.")
-        protocol = Protocol(os.getenv("STORAGE_PROTOCOL", Protocol.S3.value))
+        protocol = ProtocolEnum(os.getenv("STORAGE_PROTOCOL", ProtocolEnum.S3.value))
 
-        if protocol not in [Protocol.S3, Protocol.LOCAL]:
+        if protocol not in [ProtocolEnum.S3, ProtocolEnum.LOCAL]:
             logger.error(f"{job_id}: STORAGE_PROTOCOL must be either 's3' or 'local'.")
             raise ValueError("STORAGE_PROTOCOL must be either 's3' or 'local'.")
 
         logger.info(f"{job_id}: Storage protocol: {protocol}")
 
-        minio_repository = None
-        if protocol == Protocol.S3:
-            minio_repository = _setup_minio_repository(job_id)
+        file_repository = _setup_file_repository(job_id, protocol)
 
         telegram_client = _setup_telegram_client(job_id)
 
-        return kernel_planckster, protocol, minio_repository, telegram_client
+        return kernel_planckster, protocol, file_repository, telegram_client
 
     except Exception as error:
         logger.error(f"{job_id}: Unable to setup. Error:\n{error}")
@@ -184,8 +166,8 @@ async def _scrape(
     channel_name: str,
     tracer_id: str,
     kernel_planckster: KernelPlancksterGateway,
-    protocol: Protocol,
-    minio_repository: MinIORepository | None,
+    protocol: ProtocolEnum,
+    file_repository: FileRepository,
     telegram_client: TelegramClient,
 ) -> JobOutput:
 
@@ -194,6 +176,7 @@ async def _scrape(
 
         output_lfns: List[LFN] = []
         async with telegram_client as client:
+            assert isinstance(client, TelegramClient)  # for typing
 
             # Set the job state to running
             logger.info(f"{job_id}: Starting Job")
@@ -235,7 +218,7 @@ async def _scrape(
                                 )
                                 file_location = await client.download_media(
                                     message.media.photo,
-                                    file=tmp.name,
+                                    file=tmp.name
                                 )
 
                                 logger.info(
@@ -245,40 +228,39 @@ async def _scrape(
                                     protocol=protocol,
                                     tracer_id=tracer_id,
                                     job_id=job_id,
-                                    source=DataSource.TELEGRAM,
+                                    source=KnowledgeSourceEnum.TELEGRAM,
                                     relative_path=f"photos",
                                 )
                                 current_lfn = media_lfn
 
-                                if protocol == Protocol.S3:
-                                    pfn = minio_repository.lfn_to_pfn(media_lfn)
+                                if protocol == ProtocolEnum.S3:
+
+                                    signed_url = kernel_planckster.generate_signed_url(lfn=media_lfn) 
+                                    
+                                    logger.info(f"{job_id}: Uploading photo to object store")
+
+                                    file_repository.public_upload(signed_url, tmp.name)
+                                    
                                     logger.info(
-                                        f"{job_id}:Uploading photo {media_lfn} to {pfn}"
-                                    )
-                                    minio_repository.upload_file(media_lfn, tmp.name)
-                                    logger.info(
-                                        f"{job_id}: Uploaded photo {media_lfn} to {pfn}"
+                                        f"{job_id}: Uploaded photo to {signed_url}"
                                     )
 
-                                elif protocol == Protocol.LOCAL:
-                                    file_name = f"data/{media_lfn.tracer_id}/{media_lfn.source.value}/{media_lfn.job_id}/{media_lfn.relative_path}"
-                                    logger.info(
-                                        f" {job_id}:Saving photo {media_lfn} locally to {file_name}"
-                                    )
-                                    os.makedirs(os.path.dirname(file_name), exist_ok=True)
-                                    shutil.copy(tmp.name, file_name)
-                                    logger.info(
-                                        f"{job_id}: Saved photo {media_lfn} to {file_name}"
-                                    )
-                                    pfn = f"local://{file_name}"
+                                    kp_source_data = kernel_planckster.register_new_source_data(lfn=media_lfn)
+
+
+
+                                elif protocol == ProtocolEnum.LOCAL:
+                                    # If local, then we don't use kernel planckster at all
+                                    # NOTE: local is deprecated, use this only for quick tests
+                                    file_repository.save_file_locally(
+                                        file_to_save=tmp.name,
+                                        lfn=media_lfn,
+                                        file_type="photo",
+                                    )                                    
 
                                 output_lfns.append(media_lfn)
                                 #job.touch()
-                                kernel_planckster.register_new_data(
-                                    pfns=[
-                                        pfn,  # TODO: think if this is correct for kernel_planckster
-                                    ],
-                                )
+                            
                                 last_successful_lfn = media_lfn
 
                         elif hasattr(message.media, "document") and message.media.document is not None:
@@ -297,44 +279,36 @@ async def _scrape(
                                     protocol=protocol,
                                     tracer_id=tracer_id,
                                     job_id=job_id,
-                                    source=DataSource.TELEGRAM,
+                                    source=KnowledgeSourceEnum.TELEGRAM,
                                     relative_path="videos",
                                 )
                                 current_lfn = document_lfn
 
-                                if protocol == Protocol.S3:
-                                    pfn = minio_repository.lfn_to_pfn(document_lfn)
+                                if protocol == ProtocolEnum.S3:
+
+                                    signed_url = kernel_planckster.generate_signed_url(lfn=document_lfn) 
+                                    
+                                    logger.info(f"{job_id}: Uploading video to object store")
+
+                                    file_repository.public_upload(signed_url, tmp.name)
+                                    
                                     logger.info(
-                                        f" {job_id}: Uploading video {document_lfn} to {pfn}"
+                                        f"{job_id}: Uploaded video to {signed_url}"
                                     )
 
-                                    minio_repository.upload_file(
-                                        document_lfn,
-                                        file_location,
-                                    )
-                                    logger.info(
-                                        f"{job_id}: Uploaded video {document_lfn} to {pfn}"
-                                    )
+                                    kp_source_data = kernel_planckster.register_new_source_data(lfn=document_lfn)
 
-                                elif protocol == Protocol.LOCAL:
-                                    file_name = f"data/{document_lfn.tracer_id}/{document_lfn.source.value}/{document_lfn.job_id}/{document_lfn.relative_path}"
-                                    logger.debug(
-                                        f"{job_id}: Saving video {document_lfn} locally to {file_name}"
+                                elif protocol == ProtocolEnum.LOCAL:
+                                    # If local, then we don't use kernel planckster at all
+                                    # NOTE: local is deprecated, use this only for quick tests
+                                    file_repository.save_file_locally(
+                                        file_to_save=tmp.name,
+                                        lfn=document_lfn,
+                                        file_type="video",
                                     )
-                                    os.makedirs(os.path.dirname(file_name), exist_ok=True)
-                                    shutil.copy(tmp.name, file_name)
-                                    logger.info(
-                                        f"{job_id}: Saved video {document_lfn} to {file_name}"
-                                    )
-                                    pfn = f"local://{file_name}"
 
                                 output_lfns.append(document_lfn)
                                 #job.touch()
-                                kernel_planckster.register_new_data(
-                                    pfns=[
-                                        pfn,  # TODO: think if this is correct for kernel_planckster
-                                    ],
-                                )
                                 last_successful_lfn = document_lfn
 
             except Exception as error:
@@ -346,58 +320,7 @@ async def _scrape(
                 #job.touch()
                 # continue to scrape data if possible
 
-            # Save the data to a CSV file
-            logger.info(f"{job_id}: Saving data to CSV file")
-            df = pd.DataFrame(
-                data,
-                columns=[
-                    "message.sender_id",
-                    "message.text",
-                    "message.date",
-                    "message.id",
-                    "message.post_author",
-                    "message.views",
-                    "message.peer_id.channel_id",
-                ],
-            )
 
-            try:
-
-                outfile_lfn: LFN = LFN(
-                    protocol=protocol,
-                    tracer_id=tracer_id,
-                    job_id=job_id,
-                    source=DataSource.TELEGRAM,
-                    relative_path="data.csv",
-                )
-
-                if protocol == Protocol.LOCAL:
-
-                    pfn = f"data/{outfile_lfn.tracer_id}/{outfile_lfn.source.value}/{outfile_lfn.job_id}/{outfile_lfn.relative_path}"
-                    # create directory if it does not exist
-                    os.makedirs(os.path.dirname(pfn), exist_ok=True)
-                    df.to_csv(pfn, encoding="utf-8")
-                    logger.info(f"{job_id}: Saved data to {pfn}")
-
-                elif protocol == Protocol.S3:
-
-                    with tempfile.NamedTemporaryFile() as tmp:
-
-                        df.to_csv(tmp.name, encoding="utf-8")
-
-                        minio_repository.upload_file(
-                            lfn=outfile_lfn,
-                            file_path=tmp.name,
-                        )
-
-                        pfn = minio_repository.lfn_to_pfn(outfile_lfn)
-                        logger.info(f"{job_id}: Uploaded data to {pfn}")
-
-                else:
-                    raise ValueError(f"Protocol {protocol} is not supported.")
-
-
-                output_lfns.append(outfile_lfn)
                 job_state = BaseJobState.FINISHED
                 #job.touch()
                 logger.info(f"{job_id}: Job finished")
@@ -437,10 +360,8 @@ def main(
         raise ValueError("job_id, tracer_id, and channel_name must all be set.")
 
 
-    kernel_planckster, protocol, minio_repository, telegram_client = _setup(job_id)
+    kernel_planckster, protocol, file_repository, telegram_client = _setup(job_id)
 
-    if protocol == Protocol.S3 and minio_repository is None:
-        raise ValueError("MinIORepository must be set when using the s3 protocol.")
 
     import asyncio
 
@@ -452,7 +373,7 @@ def main(
             tracer_id=tracer_id,
             kernel_planckster=kernel_planckster,
             protocol=protocol,
-            minio_repository=minio_repository,
+            file_repository=file_repository,
             telegram_client=telegram_client,
         )
     )
