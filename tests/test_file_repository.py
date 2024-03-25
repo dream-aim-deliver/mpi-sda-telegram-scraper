@@ -1,9 +1,10 @@
 import os
 import tempfile
+import uuid
 
 from app.sdk.file_repository import FileRepository
 from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway
-from app.sdk.models import LFN, ProtocolEnum, KnowledgeSourceEnum
+from app.sdk.models import KernelPlancksterSourceData, ProtocolEnum
 
 
 def test_file_name_to_pfn_and_back(
@@ -24,25 +25,27 @@ def test_file_name_to_pfn_and_back(
 
 def test_save_file_locally(
     file_repository: FileRepository,
+    test_file_path: str,
 ) ->  None:
-    lfn = LFN(
-        tracer_id="test_tracer_id",
-        source=KnowledgeSourceEnum.TELEGRAM,
-        protocol=ProtocolEnum.LOCAL,
-        job_id=1,
-        relative_path="relative_path",
-    )
 
-    tmp_file = tempfile.NamedTemporaryFile(delete=False)
+    tmp_file = test_file_path
+
+    relative_path = "test_path"
+
+    source_data = KernelPlancksterSourceData(
+        name="test_name",
+        protocol=ProtocolEnum.LOCAL,
+        relative_path=relative_path,
+    )
 
     type = "test_type"
 
-    pfn = file_repository.save_file_locally(tmp_file.name, lfn, type)
+    pfn = file_repository.save_file_locally(tmp_file, source_data, type)
     
     new_file = file_repository.pfn_to_file_name(pfn)
 
     # Assert the new file saved is the same as the original file
-    with open(tmp_file.name, "rb") as f:
+    with open(tmp_file, "rb") as f:
         original = f.read()
 
     with open(new_file, "rb") as f:
@@ -52,7 +55,7 @@ def test_save_file_locally(
 
     # Clean up
     os.remove(new_file)
-    os.remove(tmp_file.name)
+    os.remove(tmp_file)
 
 
 def test_public_upload(
@@ -65,15 +68,13 @@ def test_public_upload(
 
     tmp_file = test_file_path
 
-    test_media_lfn: LFN = LFN(
+    test_media_sd = KernelPlancksterSourceData(
+        name="test_name",
         protocol=ProtocolEnum.S3,
-        tracer_id="test_tracer_id",
-        job_id=1,
-        source=KnowledgeSourceEnum.TELEGRAM,
-        relative_path=tmp_file,
+        relative_path=f"test_path-{uuid.uuid4()}.ext"
     )
 
-    signed_url = kernel_planckster.generate_signed_url(test_media_lfn)
+    signed_url = kernel_planckster.generate_signed_url(test_media_sd)
     
 
     file_repository.public_upload(

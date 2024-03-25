@@ -1,8 +1,9 @@
 import os
 import tempfile
+import uuid
 import requests
 from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway
-from app.sdk.models import LFN, KnowledgeSourceEnum, ProtocolEnum
+from app.sdk.models import KernelPlancksterSourceData, ProtocolEnum
 
 
 def test_generate_signed_url(
@@ -14,15 +15,13 @@ def test_generate_signed_url(
 
     tmp_file = test_file_path
 
-    test_media_lfn: LFN = LFN(
+    test_media_sd = KernelPlancksterSourceData(
+        name="test_name",
         protocol=ProtocolEnum.S3,
-        tracer_id="test_tracer_id",
-        job_id=1,
-        source=KnowledgeSourceEnum.TELEGRAM,
-        relative_path=tmp_file,
+        relative_path=f"test_path-{uuid.uuid4()}.ext"
     )
 
-    signed_url = kernel_planckster.generate_signed_url(test_media_lfn)
+    signed_url = kernel_planckster.generate_signed_url(test_media_sd)
 
     # Test signed url works
     with open(tmp_file, "rb") as f:
@@ -43,15 +42,13 @@ def test_register_new_source_data(
 
     tmp_file = test_file_path
 
-    test_media_lfn: LFN = LFN(
+    test_media_sd = KernelPlancksterSourceData(
+        name="test_name",
         protocol=ProtocolEnum.S3,
-        tracer_id="test_tracer_id",
-        job_id=1,
-        source=KnowledgeSourceEnum.TELEGRAM,
-        relative_path=tmp_file,
+        relative_path=f"test_path-{uuid.uuid4()}.ext"
     )
 
-    signed_url = kernel_planckster.generate_signed_url(test_media_lfn)
+    signed_url = kernel_planckster.generate_signed_url(test_media_sd)
 
     # Test signed url works
     with open(tmp_file, "rb") as f:
@@ -60,10 +57,10 @@ def test_register_new_source_data(
     assert upload_res.status_code == 200
 
     # Test registering new source data
-    kp_sd = kernel_planckster.register_new_source_data(test_media_lfn)
+    kp_sd = kernel_planckster.register_new_source_data(test_media_sd)
 
     assert kp_sd is not None
-    assert kp_sd["lfn"] == test_media_lfn
+    assert kp_sd["name"] == test_media_sd.name
 
     # Clean up
     os.remove(tmp_file)

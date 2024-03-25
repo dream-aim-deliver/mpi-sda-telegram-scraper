@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from app.sdk.kernel_plackster_gateway import KernelPlancksterGateway
 from app.sdk.file_repository import MinIORepository
 
-from app.sdk.models import LFN, ProtocolEnum
+from app.sdk.models import KernelPlancksterSourceData, ProtocolEnum
 
 
 class JobManagerFastAPIRouter:
@@ -66,7 +66,7 @@ class JobManagerFastAPIRouter:
         def create_job(
             tracer_id: str,
             job_args: Dict[str, Any],
-            input_lfns: List[LFN] | None = None,
+            input_source_data: List[KernelPlancksterSourceData] | None = None,
         ):
             job_manager = self.app.job_manager  # type: ignore
             job = job_manager.create_job(tracer_id, job_args)  # type: ignore

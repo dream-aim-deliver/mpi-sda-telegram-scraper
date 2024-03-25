@@ -3,9 +3,8 @@ import os
 import shutil
 
 import requests
-from app.sdk.models import LFN, KnowledgeSourceEnum, ProtocolEnum
+from app.sdk.models import KernelPlancksterSourceData, ProtocolEnum
 
-logger = logging.getLogger(__name__)
 
 class FileRepository:
     def __init__(
@@ -15,6 +14,7 @@ class FileRepository:
     ) -> None:
         self._protocol = protocol
         self._data_dir = data_dir
+        self._logger = logging.getLogger(__name__)
 
     @property
     def protocol(self) -> ProtocolEnum:
@@ -24,31 +24,35 @@ class FileRepository:
     def data_dir(self) -> str:
         return self._data_dir
     
+    @property
+    def logger(self) -> logging.Logger:
+        return self._logger
+    
     def file_name_to_pfn(self, file_name: str) -> str:
         return f"{self.protocol}://{file_name}"
 
     def pfn_to_file_name(self, pfn: str) -> str:
         return pfn.split("://")[1]
     
-    def lfn_to_file_name(self, lfn: LFN) -> str:
-        return f"{self.data_dir}/{lfn.tracer_id}/{lfn.source.value}/{lfn.job_id}/{lfn.relative_path}"
+    def source_data_to_file_name(self, source_data: KernelPlancksterSourceData) -> str:
+        return f"{self.data_dir}/{source_data.relative_path}"
 
-    def save_file_locally(self, file_to_save: str, lfn: LFN, file_type: str) -> str:
+    def save_file_locally(self, file_to_save: str, source_data: KernelPlancksterSourceData, file_type: str) -> str:
         """
         Save a file to a local directory.
 
         :param file_to_save: The path to the file to save.
-        :param lfn: The LFN to save the file as.
-        :param file_type: The type of file being saved.
+        :param source_data: The source data to save.
+        :param file_type: The type of file to save.
         """
         
-        file_name = self.lfn_to_file_name(lfn)
-        logger.info(f"Saving {file_type} '{lfn}' to '{file_name}'.")
+        file_name = self.source_data_to_file_name(source_data)
+        self.logger.info(f"Saving {file_type} '{source_data}' to '{file_name}'.")
 
         os.makedirs(os.path.dirname(file_name), exist_ok=True)
         shutil.copy(file_to_save, file_name)
 
-        logger.info(f"Saved {file_type} '{lfn}' to '{file_name}'.")
+        self.logger.info(f"Saved {file_type} '{source_data}' to '{file_name}'.")
 
         pfn = self.file_name_to_pfn(file_name)
 

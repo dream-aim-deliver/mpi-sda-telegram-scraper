@@ -1,41 +1,47 @@
 import logging
-import os
 import json
-from typing import Tuple
 import httpx
 
-from app.sdk.models import LFN
+from app.sdk.models import KernelPlancksterSourceData
 
-logger = logging.getLogger(__name__)
 
 
 class KernelPlancksterGateway:
     def __init__(self, host: str, port: str, auth_token: str, scheme: str) -> None:
         self._host = host
         self._port = port
+        self._client_id = 1  # NOTE: this should match the default client for this project
         self._auth_token = auth_token
         self._scheme = scheme
+        self._logger = logging.getLogger(__name__)
 
     @property
     def url(self) -> str:
         return f"{self._scheme}://{self._host}:{self._port}"
 
+    @property   
+    def logger(self) -> logging.Logger:
+        return self._logger
+
     def ping(self) -> bool:
-        logger.info(f"Pinging Kernel Plankster Gateway at {self.url}")
+        self.logger.info(f"Pinging Kernel Plankster Gateway at {self.url}")
         res = httpx.get(f"{self.url}/ping")
-        logger.info(f"Ping response: {res.text}")
+        self.logger.info(f"Ping response: {res.text}")
         return res.status_code == 200
 
-    def generate_signed_url(self, lfn: LFN) -> str:
+    def generate_signed_url(self, source_data: KernelPlancksterSourceData) -> str:
         if not self.ping():
-            logger.error(f"Failed to ping Kernel Plankster Gateway at {self.url}")
+            self.logger.error(f"Failed to ping Kernel Plankster Gateway at {self.url}")
             raise Exception("Failed to ping Kernel Plankster Gateway")
 
-        logger.info(f"Generating signed url for {lfn.relative_path}")
+        self.logger.info(f"Generating signed url for {source_data.relative_path}")
 
-        endpoint = f"{self.url}/get_client_data_for_upload"
+        endpoint = f"{self.url}/client/{self._client_id}/upload-credentials"
 
-        lfn_str = lfn.to_json()
+        params = {
+            "protocol": source_data.protocol.value,
+            "relative_path": source_data.relative_path,
+        }
 
         headers = {
             "Content-Type": "application/json",
@@ -44,51 +50,45 @@ class KernelPlancksterGateway:
 
         res = httpx.get(
             url=endpoint,
-            params={"lfn": lfn},
+            params=params,
             headers=headers,
         )
 
-        logger.info(f"Generate signed url response: {res.text}")
+        self.logger.info(f"Generate signed url response: {res.text}")
         if res.status_code != 200:
             raise ValueError(f"Failed to generate signed url: {res.text}")
 
         res_json = res.json()
 
-        res_lfn_json = res_json.get("lfn")
         signed_url = res_json.get("signed_url")
 
-        if not res_lfn_json or not signed_url:
-            raise ValueError(f"Failed to generate signed url. Dumping raw response:\n{res_json}")
-
-        res_lfn_str = json.dumps(res_lfn_json)
-        res_lfn = LFN.from_json(res_lfn_str)
-
-        assert res_lfn == lfn
+        if not signed_url:
+            raise ValueError(f"Failed to generate signed url. Signed URL not found in response. Dumping raw response:\n{res_json}")
 
         return signed_url
         
 
-    def register_new_source_data(self, lfn: LFN) -> dict[str, str]:
+    def register_new_source_data(self, source_data: KernelPlancksterSourceData) -> dict[str, str]:
         """
         Registers new source data with Kernel Plankster Gateway.
+        
+        Args:
+        - source_data: KernelPlancksterSourceData
 
-        :param lfn: The LFN of the source data to register.
-        :return: The registered source data. It has the "lfn" key, which contains the LFN of the registered source data, and should match the input LFN.
         """
         if not self.ping():
-            logger.error(f"Failed to ping Kernel Plankster Gateway at {self.url}")
+            self.logger.error(f"Failed to ping Kernel Plankster Gateway at {self.url}")
             raise Exception("Failed to ping Kernel Plankster Gateway")
 
-        logger.info(f"Registering new data with Kernel Plankster Gateway at {self.url}")
-        knowledge_source_id = 1  # NOTE: this should match the default knowledge source id in the database for Telegram
+        self.logger.info(f"Registering new data with Kernel Plankster Gateway at {self.url}")
 
-        lfn_str = lfn.to_json()
-
-        data = {
-            "lfn": lfn_str,
+        params = {
+            "source_data_name": source_data.name,
+            "source_data_protocol": source_data.protocol.value,
+            "source_data_relative_path": source_data.relative_path,
         }
 
-        endpoint = f"{self.url}/knowledge_source/{knowledge_source_id}/source_data"
+        endpoint = f"{self.url}/client/{self._client_id}/source"
 
         headers = {
             "Content-Type": "application/json",
@@ -96,32 +96,29 @@ class KernelPlancksterGateway:
             }
 
         res = httpx.post(
-            endpoint,
-            params=data,
+            url=endpoint,
+            params=params,
             headers=headers,
         )
 
-        logger.info(f"Register new data response: {res.text}")
+        self.logger.info(f"Register new data response: {res.text}")
         if res.status_code != 200:
             raise ValueError(
                 f"Failed to register new data with Kernel Plankster Gateway: {res.text}"
             )
 
-        source_data = res.json().get("source_data")
+        kp_source_data = res.json().get("source_data")
 
-        if not source_data:
+        if not kp_source_data:
             raise ValueError(f"Failed to register new data. Source Data not returned. Dumping raw response:\n{res.json()}")
 
-        res_lfn = source_data.get("lfn")
+        res_name = kp_source_data.get("name")
+        res_protocol = kp_source_data.get("protocol")
+        res_relative_path = kp_source_data.get("relative_path")
 
-        if not res_lfn:
-            raise ValueError(f"Failed to register new data. LFN not found in Source Data. Dumping raw response:\n{source_data}")
+        if not res_name or not res_protocol or not res_relative_path:
+            raise ValueError(f"Failed to register new data. Dumping raw object:\n{source_data}")
 
-        res_lfn_str = json.dumps(res_lfn)
-        res_lfn = LFN.from_json(res_lfn_str)
+        assert res_name == source_data.name
 
-        assert res_lfn == lfn
-
-        source_data["lfn"] = res_lfn
-
-        return source_data
+        return kp_source_data
