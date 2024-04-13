@@ -13,7 +13,9 @@ def main(
     job_id: int,
     channel_name: str,
     tracer_id: str,
+    work_dir: str,
     log_level: str = "WARNING",
+  
 ) -> None:
 
     logger = logging.getLogger(__name__)
@@ -53,6 +55,7 @@ def main(
             scraped_data_repository=scraped_data_repository,
             telegram_client=telegram_client,
             log_level=log_level,
+            work_dir=work_dir
         )
     )
 
@@ -93,6 +96,13 @@ if __name__ == "__main__":
         help="The log level to use when running the scraper. Possible values are DEBUG, INFO, WARNING, ERROR, CRITICAL. Set to WARNING by default.",
     )
 
+    parser.add_argument(
+        "--work_dir",
+        type=str,
+        default="./.tmp",
+        help="work dir"
+    )
+
     args = parser.parse_args()
 
 
@@ -100,7 +110,9 @@ if __name__ == "__main__":
         job_id=args.job_id,
         channel_name=args.channel_name,
         tracer_id=args.tracer_id,
+        work_dir=args.work_dir,
         log_level=args.log_level,
+     
     )
 
 
