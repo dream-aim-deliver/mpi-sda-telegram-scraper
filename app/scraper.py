@@ -13,6 +13,7 @@ from instructor import Instructor
 from openai import OpenAI
 from geopy.geocoders import Nominatim
 import pandas as pd
+import shutil
 class messageData(BaseModel):
     city: str
     country: str
@@ -186,8 +187,10 @@ async def scrape(
                     protocol=protocol,
                     relative_path=f"telegram/{tracer_id}/{job_id}/augmented/data.json",
                 )
-                scraped_data_repository.register_scraped_json(final_augmented_data, job_id, f"{work_dir}/telegram/augmented_telegram_scrape.json" )
-
+                try:
+                    scraped_data_repository.register_scraped_json(final_augmented_data, job_id, f"{work_dir}/telegram/augmented_telegram_scrape.json" )
+                except Exception as e:
+                    logger.info("could not register file")
 
             except Exception as error:
                 job_state = BaseJobState.FAILED
@@ -203,17 +206,19 @@ async def scrape(
             job_state = BaseJobState.FINISHED
             #job.touch()
             logger.info(f"{job_id}: Job finished")
-
+            shutil.rmtree(work_dir)
             return JobOutput(
                 job_state=job_state,
                 tracer_id=tracer_id,
                 source_data_list=output_data_list,
             )
-
+     
 
     except Exception as error:
         logger.error(f"{job_id}: Unable to scrape data. Job with tracer_id {tracer_id} failed. Error:\n{error}")
         job_state = BaseJobState.FAILED
+        
+        shutil.rmtree(work_dir)
         #job.messages.append(f"Status: FAILED. Unable to scrape data. {e}")
 
 
