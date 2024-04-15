@@ -282,7 +282,10 @@ async def scrape(
             job_state = BaseJobState.FINISHED
             # job.touch()
             logger.info(f"{job_id}: Job finished")
-            shutil.rmtree(work_dir)
+            try:
+                shutil.rmtree(work_dir)
+            except Exception as e:
+                logger.log("Could not delete tmp directory, exiting")
             return JobOutput(
                 job_state=job_state,
                 tracer_id=tracer_id,
@@ -295,7 +298,10 @@ async def scrape(
         )
         job_state = BaseJobState.FAILED
 
-        shutil.rmtree(work_dir)
+        try:
+            shutil.rmtree(work_dir)
+        except Exception as e:
+            logger.log("Could not delete tmp directory, exiting")
         # job.messages.append(f"Status: FAILED. Unable to scrape data. {e}")
 
 
