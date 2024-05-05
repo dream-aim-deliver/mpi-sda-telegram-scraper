@@ -19,6 +19,7 @@ def main(
     telegram_api_id: str,
     telegram_api_hash: str,
     openai_api_key: str,
+    topic: str,
     telegram_phone_number: str | None = None,
     telegram_password: str | None = None,
     telegram_bot_token: str | None = None,
@@ -70,6 +71,7 @@ def main(
             telegram_client=telegram_client,
             log_level=log_level,
             openai_api_key=openai_api_key,
+            topic=topic
         )
     )
 
@@ -182,6 +184,13 @@ if __name__ == "__main__":
         help="The OpenAI API Key",
     )
 
+    parser.add_argument(
+        "--topic",
+        type=str,
+        default="wildfire",
+        help="The topic to scrape on",
+    )
+
     args = parser.parse_args()
 
     main(
@@ -199,4 +208,5 @@ if __name__ == "__main__":
         telegram_password=args.telegram_password,
         telegram_bot_token=args.telegram_bot_token,
         openai_api_key=args.openai_api_key,
+        topic=args.topic
     )

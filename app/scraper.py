@@ -66,7 +66,7 @@ class messageData(BaseModel):
         "30",
         "31",
     ]
-    disaster_type: Literal["Wildfire", "Other"]
+    disaster_type: Literal["Wildfire", "Climate", "Other"]
 
 
 # Potential alternate prompting
@@ -76,7 +76,7 @@ class messageData(BaseModel):
 #     year: int
 #     month: Literal['January', 'Febuary', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'Unsure']
 #     day: Literal['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', 'Unsure']
-#     disaster_type: Literal['Wildfire', 'Other']
+#     disaster_type: Literal[topic, 'Other']
 
 
 class filterData(BaseModel):
@@ -96,6 +96,7 @@ async def scrape(
     scraped_data_repository: ScrapedDataRepository,
     telegram_client: TelegramClient,
     openai_api_key: str,
+    topic: str,
     log_level: Logger,
 ) -> JobOutput:
 
@@ -120,7 +121,7 @@ async def scrape(
 
             data = []
             augmented_data = []
-            filter = "forest wildfire"
+            filter = topic
             # Enables `response_model`
             instructor_client = instructor.from_openai(OpenAI(api_key=openai_api_key))
 
@@ -233,40 +234,42 @@ async def scrape(
                                 last_successful_data = document_data
 
                 with tempfile.NamedTemporaryFile() as tmp:
-                    df = pd.DataFrame(
-                        augmented_data,
-                        columns=[
-                            "Title",
-                            "Telegram",
-                            "Extracted_Location",
-                            "Resolved_Latitude",
-                            "Resolved_Longitude",
-                            "Month",
-                            "Day",
-                            "Year",
-                            "Disaster_Type",
-                        ],
-                    )
-                    file_name = f"{os.path.basename(tmp.name)}"
-                    df.to_json(
-                        f"{tmp.name}",
-                        orient="index",
-                        indent=4,
-                    )
-
-                    final_augmented_data = KernelPlancksterSourceData(
-                        name=f"telegram_all_augmented",
-                        protocol=protocol,
-                        relative_path=f"telegram/{tracer_id}/{job_id}/augmented/data.json",
-                    )
-                    try:
-                        scraped_data_repository.register_scraped_json(
-                            final_augmented_data,
-                            job_id,
-                            f"{tmp.name}",
+                    print(augmented_data)
+                    if augmented_data:
+                        df = pd.DataFrame(
+                            augmented_data,
+                            columns=[
+                                "Title",
+                                "Telegram",
+                                "Extracted_Location",
+                                "Resolved_Latitude",
+                                "Resolved_Longitude",
+                                "Month",
+                                "Day",
+                                "Year",
+                                "Disaster_Type",
+                            ],
                         )
-                    except Exception as e:
-                        logger.info("could not register file")
+                        file_name = f"{os.path.basename(tmp.name)}"
+                        df.to_json(
+                            f"{tmp.name}",
+                            orient="index",
+                            indent=4,
+                        )
+
+                        final_augmented_data = KernelPlancksterSourceData(
+                            name=f"telegram_all_augmented",
+                            protocol=protocol,
+                            relative_path=f"telegram/{tracer_id}/{job_id}/augmented/data.json",
+                        )
+                        try:
+                            scraped_data_repository.register_scraped_json(
+                                final_augmented_data,
+                                job_id,
+                                f"{tmp.name}",
+                            )
+                        except Exception as e:
+                            logger.info("could not register file")
 
             except Exception as error:
                 job_state = BaseJobState.FAILED
@@ -376,6 +379,18 @@ def augment_telegram(client: Instructor, message: any, filter: str):
                 year,
                 disaster_type,
             ]
+        return [
+            title,
+            content,
+            "n/a",
+            "n/a",
+            "n/a",
+            "n/a",
+            "n/a",
+            "n/a",
+            "Other",
+        ]
+     
 
 
 # utility function for augmenting tweets with geolocation
