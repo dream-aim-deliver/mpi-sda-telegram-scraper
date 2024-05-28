@@ -71,7 +71,7 @@ def main(
             telegram_client=telegram_client,
             log_level=log_level,
             openai_api_key=openai_api_key,
-            topic=topic
+            topic=topic,
         )
     )
 
@@ -112,8 +112,6 @@ if __name__ == "__main__":
         help="The log level to use when running the scraper. Possible values are DEBUG, INFO, WARNING, ERROR, CRITICAL. Set to WARNING by default.",
     )
 
-
-
     parser.add_argument(
         "--kp-auth-token",
         type=str,
@@ -140,6 +138,13 @@ if __name__ == "__main__":
         type=str,
         default="http",
         help="The Kernel Planckster scheme",
+    )
+
+    parser.add_argument(
+        "--protocol",
+        type=str,
+        default="S3",
+        help="Protocol to use (s3 or local)",
     )
 
     parser.add_argument(
@@ -208,5 +213,5 @@ if __name__ == "__main__":
         telegram_password=args.telegram_password,
         telegram_bot_token=args.telegram_bot_token,
         openai_api_key=args.openai_api_key,
-        topic=args.topic
+        topic=args.topic,
     )
