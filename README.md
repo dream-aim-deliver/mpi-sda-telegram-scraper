@@ -1,18 +1,18 @@
 ## Use
 
 You can start the application by pulling the docker image from Dockerhub.
-You will need to provide the required environment variables, and mount the session file to the container. The best approach would be to create your own `.env` file, following `.env.template`, and load it into the container:
+You will need to provide the required command line arguments, and mount the session file to the container. 
 
 ```bash
 docker run --rm \
     --name mpi-telegram-scraper \
-    -v "${PWD}/sda-telgram-scraper.session:/telegram_scaper/sda-telegram-scraper.session:ro" \
-    -v "${PWD}/.env:/app/.env:ro" \
+    -v "${PWD}/sda-telegram-scraper.session:/telegram_scaper/sda-telegram-scraper.session:ro" \
+    
     --net="host" \
     mpi-telegram-scraper
 ```
 
-See the [Development](#development) section for more information on the required environment variables.
+See the [Development](#development) section for more information on the command line arguments
 Now you can run the main scraper script with the following command.
 All parameters have the default values stated below:
 
@@ -27,7 +27,7 @@ When executing the `telegram_scraper.py` script inside the container, if everyth
 
 ## Development
 
-### Setup and Environment Variables
+### Setup and CLI arguments
 
 1. Install the required packages, preferably in a virtual environment
 ```bash
@@ -39,16 +39,15 @@ pip install -r requirements.txt
 2. Start a kernel-planckster instance:
     - Clone the [kernel-planckster](https://github.com/dream-aim-deliver/kernel-planckster) repo elsewhere
     - Install the required packages, preferable in its own virtual environment, following the instructions in the README
-    - Run it in dev mode with a object store following the README (e.g., `poetry run dev --storage`), where you'll find the host, port, auth key and schema (they should match this repo's `.env.example` file)
+    - Run it in dev mode with a object store following the README (e.g., `poetry run dev --storage`), where you'll find the host, port, auth key and schema.
 
 3. Obtain the following credentials from [Telegram](https://core.telegram.org/api/obtaining_api_id): api ID, and api hash. You will also need the phone number and a password of the account you want to use for scraping. **IMPORTANT**: You will need access to the phone you provided, as Telegram will send a verification code to it.
 
-4. Copy the `.env.example` file to `.env` and fill in the required fields.
-    - For `KERNEL_PLANCKSTER_*`, get them from the kernel-planckster README or the instance you started in step 3
-    - You can choose the `STORAGE_PROTOCOL` to use:
-        + `s3`
-        + `local` for local storage, will create a `data` directory in the root of the project and store the files there. DEPRECATED: use `s3` with Kernel Planckster running on the side
-    - The `TELEGRAM_*` fields are the credentials you obtained in step 4
+4. You will pass the required parameters as command line arguments when running the application. The command line arguments should be modelled in a similar fashion as shown below (an example command to run a script with default values:)
+```bash
+python3 example.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="example"
+
+```
 
 
 ### Standalone Execution
@@ -65,7 +64,7 @@ This configuration will be stored in a file called `sda-telegram-scraper.session
 ### Build Image
 
 You can dockerize the application by building an image with the following command.
-Make sure to fill in the `.env` file with the required credentials, by following the `.env.template` file and the [Setup and Environment Variables](#setup-and-environment-variables) section:
+Make sure to run the commands with the required credentials, by following the command examples and the [Setup and CLI](#setup-and-CLI) section:
 
 ```bash
 docker build -t mpi-telegram-scraper .
@@ -78,10 +77,10 @@ Then you can do:
 ```bash
 docker run --rm \
     --name mpi-telegram-scraper \
-    -v "${PWD}/sda-telgram-scraper.session:/telegram_scaper/sda-telegram-scraper.session:ro" \
-    -v "${PWD}/.env:/app/.env:ro" \
+    -v "${PWD}/sda-telegram-scraper.session:/telegram_scaper/sda-telegram-scraper.session:ro" \
+
     --net="host" \
-    mpi-telegram-scraper
+    mpi-telegram-scraper \
 ```
 
 And now, to run the main scraper script:
