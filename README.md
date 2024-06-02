@@ -45,7 +45,7 @@ pip install -r requirements.txt
 
 4. You will pass the required parameters as command line arguments when running the application. The command line arguments should be modelled in a similar fashion as shown below (an example command to run a script with default values:)
 ```bash
-python3 example.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="example"
+python3 telegram_scraper.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="GCC_report" --telegram-api-id=API_ID_VALUE --telegram-api-hash=HASH_VALUE --telegram-phone-number=VALUE --telegram-password="testpassword"
 
 ```
 

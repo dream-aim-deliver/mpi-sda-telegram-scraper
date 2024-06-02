@@ -68,6 +68,7 @@ def setup(
     kp_host: str,
     kp_port: int,
     kp_scheme: str,
+    protocol: str,
 ) -> Tuple[KernelPlancksterGateway, ProtocolEnum, FileRepository]:
     """
     Setup the Kernel Planckster Gateway, the storage protocol and the file repository.

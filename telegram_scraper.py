@@ -20,6 +20,7 @@ def main(
     telegram_api_hash: str,
     openai_api_key: str,
     topic: str,
+    protocol: str,
     telegram_phone_number: str | None = None,
     telegram_password: str | None = None,
     telegram_bot_token: str | None = None,
@@ -40,6 +41,7 @@ def main(
         kp_host=kp_host,
         kp_port=kp_port,
         kp_scheme=kp_scheme,
+        protocol=protocol,
     )
 
     scraped_data_repository = ScrapedDataRepository(
@@ -143,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--protocol",
         type=str,
-        default="S3",
+        default="s3",
         help="Protocol to use (s3 or local)",
     )
 
@@ -214,4 +216,5 @@ if __name__ == "__main__":
         telegram_bot_token=args.telegram_bot_token,
         openai_api_key=args.openai_api_key,
         topic=args.topic,
+        protocol=args.protocol,
     )
