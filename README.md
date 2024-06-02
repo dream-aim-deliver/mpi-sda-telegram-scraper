@@ -7,7 +7,6 @@ You will need to provide the required command line arguments, and mount the sess
 docker run --rm \
     --name mpi-telegram-scraper \
     -v "${PWD}/sda-telegram-scraper.session:/telegram_scaper/sda-telegram-scraper.session:ro" \
-    
     --net="host" \
     mpi-telegram-scraper
 ```
@@ -43,10 +42,18 @@ pip install -r requirements.txt
 
 3. Obtain the following credentials from [Telegram](https://core.telegram.org/api/obtaining_api_id): api ID, and api hash. You will also need the phone number and a password of the account you want to use for scraping. **IMPORTANT**: You will need access to the phone you provided, as Telegram will send a verification code to it.
 
-4. You will pass the required parameters as command line arguments when running the application. The command line arguments should be modelled in a similar fashion as shown below (an example command to run a script with default values:)
-```bash
-python3 telegram_scraper.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="GCC_report" --telegram-api-id=API_ID_VALUE --telegram-api-hash=HASH_VALUE --telegram-phone-number=VALUE --telegram-password="testpassword"
+4. Create a [.env] file containing the API_ID and API_HASH values,and then run the [generate-session.py] file.
 
+5. You will pass the required parameters as command line arguments when running the application. The command line arguments should be modelled in a similar fashion as shown below (an example command to run a script with default values:)
+```bash
+python3 telegram_scraper.py --log-level=WARNING --job-id=1 --tracer-id="1" --channel-name="GCC_report" --telegram-api-id=API_ID_VALUE --telegram-api-hash=HASH_VALUE --telegram-phone-number=VALID_PHONE_NUMBER --telegram-password="testpassword" --openai-api-key=VALID_KEY
+```
+
+**Another method (OR)**
+
+Open the [demo.sh] file and update the values of [--telegram-api-id] , [--telegram-api-hash] , [--telegram-phone-number],[--telegram-password] to match your credentials. Also add a valid [--openai-api-key] then run using-
+```bash
+./demo.sh
 ```
 
 
@@ -78,7 +85,7 @@ Then you can do:
 docker run --rm \
     --name mpi-telegram-scraper \
     -v "${PWD}/sda-telegram-scraper.session:/telegram_scaper/sda-telegram-scraper.session:ro" \
-
+    
     --net="host" \
     mpi-telegram-scraper \
 ```
