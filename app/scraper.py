@@ -298,29 +298,23 @@ async def scrape(
 
         # job.messages.append(f"Status: FAILED. Unable to scrape data. {e}")
 
-
 def augment_telegram(client: Instructor, message: any, filter: str):
-    if len(message.text) <= 5:
-        return None
+    if len(message.text) > 5:
+        # extract aspects of the tweet
+        title = message.peer_id.channel_id
+        content = message.text
 
-    title = message.peer_id.channel_id
-    content = message.text
-
-    # Relevancy filter with GPT-4
-    try:
+        # Relevancy filter with gpt-4
         filter_data = client.chat.completions.create(
             model="gpt-4",
             response_model=filterData,
             messages=[
                 {
                     "role": "user",
-                    "content": f"Examine this telegram message: {content}. Is this telegram message describing {filter}?",
+                    "content": f"Examine this telegram message: {content}. Is this telegram message describing {filter}? ",
                 },
             ],
         )
-    except Exception as e:                                               # added an additional exception case
-        Logger.error(f"Error in relevancy filter: {e}")
-        return None
 
     if filter_data.relevant:
         aug_data = None
