@@ -11,8 +11,6 @@ from typing import Literal
 import instructor
 from instructor import Instructor
 from openai import OpenAI
-from transformers import pipeline
-#need to install transformers and pytorch , before execution
 
 class messageData(BaseModel):
     city: str
@@ -297,103 +295,89 @@ async def scrape(
 
         # job.messages.append(f"Status: FAILED. Unable to scrape data. {e}")
 
-#using transformers for our usecase
-classifier = pipeline('text-classification', model='distilbert-base-uncased-finetuned-sst-2-english')
-ner = pipeline('ner', model='dbmdz/bert-large-cased-finetuned-conll03-english', grouped_entities=True)          
-
-def is_relevant_message(message_text: str, filter: str) -> bool:            # filtering logic
-    result = classifier(f"Is this :{message_text} ,about {filter}?")
-    return result[0]['label'] == 'POSITIVE'
-
 def augment_telegram(client: Instructor, message: any, filter: str):
     if len(message.text) > 5:
-        # extract aspects of the message
+        # extract aspects of the tweet
         title = message.peer_id.channel_id
         content = message.text
 
-    if is_relevant_message(content,filter):
-        aug_data = None
-        entities = ner(content)               # Perform named entity recognition (NER) on the content
-        city, country, year, month, day, disaster_type = "unknown", "unknown", "unknown", "unknown", "unknown", "Other"
-        try:
-            for entity in entities:
-                if entity['entity_group'] == 'LOC':      # Check if the entity is a location
-                    if ',' in entity['word']:
-                        city, country = entity['word'].split(',', 1)
-                    else:
-                        city = entity['word']
-                elif entity['entity_group'] == 'DATE':
-                    year = entity['word']                 # Assign the entity to the year (this can be improved to handle more complex date parsing)
-        except Exception as e:
-            Logger.error(f"Could not augment message with error: {e}")
+        # Relevancy filter with gpt-4
+        filter_data = client.chat.completions.create(
+            model="gpt-4",
+            response_model=filterData,
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"Examine this telegram message: {content}. Is this telegram message describing {filter}? ",
+                },
+            ],
+        )
 
-        try:
-            # Location extraction with GPT-4 Turbo 
-            aug_data = client.chat.completions.create(
-                model="gpt-4-turbo",
-                response_model=messageData,
-                #incase the NER doesn't work, we can use simple extraction logic 
-                messages=[
-                    {"role": "user", "content": f"Extract detailed information from this message: {content}. Include entities like city, country, date, and disaster type."},
-                ],
-            )
-        except Exception as e1:
-            Logger.error(f"Could not augment message with initial prompt: {e1}")
+        if filter_data.relevant:
+            aug_data = None
             try:
-                # Alternative prompt
+                # location extraction with gpt-3.5
                 aug_data = client.chat.completions.create(
                     model="gpt-4-turbo",
                     response_model=messageData,
                     messages=[
-                        {"role": "user", "content": f"can we extract any information about {filter} from this message {content}?"},
+                        {"role": "user", "content": f"Extract: {content}"},
                     ],
                 )
-            except Exception as e2:
-                Logger.error(f"Could not augment message with alternative prompt: {e2}")
-                return None
+            except Exception as e:
+                Logger.info("Could not augment tweet, trying with alternate prompt")
+                try:
+                    # Alternative prompt
+                    aug_data = client.chat.completions.create(
+                        model="gpt-4-turbo",
+                        response_model=messageData,
+                        messages=[
+                            {"role": "user", "content": f"can we extract any information about {filter} from this message {content}?"},
+                        ],
+                    )
+                except Exception as e2:
+                    Logger.info(f"Could not augment message with alternative prompt: {e2}")
+                    return None
 
-        if aug_data:                                                        
-            city = getattr(aug_data, 'city', 'unknown city')
-            country = getattr(aug_data, 'country', 'unknown country')
-            extracted_location = f"{city},{country}"
-            year = getattr(aug_data, 'year', 'unknown year')
-            month = getattr(aug_data, 'month', 'unknown month')
-            day = getattr(aug_data, 'day', 'unknown day')
-            disaster_type = getattr(aug_data, 'disaster_type', 'Other')
+            city = aug_data.city
+            country = aug_data.country
+            extracted_location = city + "," + country
+            year = aug_data.year
+            month = aug_data.month
+            day = aug_data.day
+            disaster_type = aug_data.disaster_type
 
-        # NLP-informed geolocation
-        try:
-            coordinates = get_lat_long(extracted_location)
-            latitude, longitude = coordinates if coordinates else ("no latitude", "no longitude")
-        except Exception as e:
-            Logger.error(f"Geolocation error: {e}")
-            latitude, longitude = "no latitude", "no longitude"
+            # NLP-informed geolocation
+            try:
+                coordinates = get_lat_long(extracted_location)
+                latitude, longitude = coordinates if coordinates else ("no latitude", "no longitude")
+            except Exception as e:
+                Logger.info(f"Geolocation error: {e}")
+                latitude, longitude = "no latitude", "no longitude"
 
-        return [
-            title,
-            content,
-            f"{city}, {country}",
-            latitude,
-            longitude,
-            month,
-            day,
-            year,
-            disaster_type,
+            return [
+                title,
+                content,
+                f"{city}, {country}",
+                latitude,
+                longitude,
+                month,
+                day,
+                year,
+                disaster_type,
             ]
-    else:
-        return [
-            title,
-            content,
-            "n/a",
-            "n/a",
-            "n/a",
-            "n/a",
-            "n/a",
-            "n/a",
-            "Other",
-        ]
-
-     
+        else:
+            return [
+                title,
+                content,
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "Other",
+            ]
 
 
 # utility function for augmenting tweets with geolocation
