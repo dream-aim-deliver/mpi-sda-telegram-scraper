@@ -68,11 +68,19 @@ def setup(
     kp_host: str,
     kp_port: int,
     kp_scheme: str,
+    protocol: str,
 ) -> Tuple[KernelPlancksterGateway, ProtocolEnum, FileRepository]:
     """
     Setup the Kernel Planckster Gateway, the storage protocol and the file repository.
 
-    NOTE: needs and '.env' file within context.
+    :param job_id: The job ID.
+    :param logger: Logger instance.
+    :param kp_auth_token: Kernel Planckster auth token.
+    :param kp_host: Kernel Planckster host.
+    :param kp_port: Kernel Planckster port.
+    :param kp_scheme: Kernel Planckster scheme.
+    :param protocol: The protocol to use (default: S3).
+    :return: Kernel Planckster instance, protocol, and file repository.
     """
 
     try:
@@ -81,7 +89,7 @@ def setup(
         )
 
         logger.info(f"{job_id}: Checking storage protocol.")
-        protocol = ProtocolEnum(os.getenv("STORAGE_PROTOCOL", ProtocolEnum.S3.value))
+        protocol = ProtocolEnum(protocol)  # using the command line arg
 
         if protocol not in [ProtocolEnum.S3, ProtocolEnum.LOCAL]:
             logger.error(f"{job_id}: STORAGE_PROTOCOL must be either 's3' or 'local'.")
