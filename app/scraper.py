@@ -11,9 +11,6 @@ from typing import Literal
 import instructor
 from instructor import Instructor
 from openai import OpenAI
-from geopy.geocoders import Nominatim
-import pandas as pd
-
 
 class messageData(BaseModel):
     city: str
@@ -66,8 +63,7 @@ class messageData(BaseModel):
         "30",
         "31",
     ]
-    disaster_type: Literal["Wildfire", "Other"]
-
+    disaster_type: str
 
 # Potential alternate prompting
 # class messageDataAlternate(BaseModel):
@@ -76,7 +72,7 @@ class messageData(BaseModel):
 #     year: int
 #     month: Literal['January', 'Febuary', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'Unsure']
 #     day: Literal['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', 'Unsure']
-#     disaster_type: Literal['Wildfire', 'Other']
+#     disaster_type: Literal[topic, 'Other']
 
 
 class filterData(BaseModel):
@@ -96,6 +92,7 @@ async def scrape(
     scraped_data_repository: ScrapedDataRepository,
     telegram_client: TelegramClient,
     openai_api_key: str,
+    topic: str,
     log_level: Logger,
 ) -> JobOutput:
 
@@ -120,7 +117,7 @@ async def scrape(
 
             data = []
             augmented_data = []
-            filter = "forest wildfire"
+            filter = topic
             # Enables `response_model`
             instructor_client = instructor.from_openai(OpenAI(api_key=openai_api_key))
 
@@ -233,40 +230,42 @@ async def scrape(
                                 last_successful_data = document_data
 
                 with tempfile.NamedTemporaryFile() as tmp:
-                    df = pd.DataFrame(
-                        augmented_data,
-                        columns=[
-                            "Title",
-                            "Telegram",
-                            "Extracted_Location",
-                            "Resolved_Latitude",
-                            "Resolved_Longitude",
-                            "Month",
-                            "Day",
-                            "Year",
-                            "Disaster_Type",
-                        ],
-                    )
-                    file_name = f"{os.path.basename(tmp.name)}"
-                    df.to_json(
-                        f"{tmp.name}",
-                        orient="index",
-                        indent=4,
-                    )
-
-                    final_augmented_data = KernelPlancksterSourceData(
-                        name=f"telegram_all_augmented",
-                        protocol=protocol,
-                        relative_path=f"telegram/{tracer_id}/{job_id}/augmented/data.json",
-                    )
-                    try:
-                        scraped_data_repository.register_scraped_json(
-                            final_augmented_data,
-                            job_id,
-                            f"{tmp.name}",
+                    print(augmented_data)
+                    if augmented_data:
+                        df = pd.DataFrame(
+                            augmented_data,
+                            columns=[
+                                "Title",
+                                "Telegram",
+                                "Extracted_Location",
+                                "Resolved_Latitude",
+                                "Resolved_Longitude",
+                                "Month",
+                                "Day",
+                                "Year",
+                                "Disaster_Type",
+                            ],
                         )
-                    except Exception as e:
-                        logger.info("could not register file")
+                        file_name = f"{os.path.basename(tmp.name)}"
+                        df.to_json(
+                            f"{tmp.name}",
+                            orient="index",
+                            indent=4,
+                        )
+
+                        final_augmented_data = KernelPlancksterSourceData(
+                            name=f"telegram_all_augmented",
+                            protocol=protocol,
+                            relative_path=f"telegram/{tracer_id}/{job_id}/augmented/data.json",
+                        )
+                        try:
+                            scraped_data_repository.register_scraped_json(
+                                final_augmented_data,
+                                job_id,
+                                f"{tmp.name}",
+                            )
+                        except Exception as e:
+                            logger.info("could not register file")
 
             except Exception as error:
                 job_state = BaseJobState.FAILED
@@ -295,14 +294,13 @@ async def scrape(
 
         # job.messages.append(f"Status: FAILED. Unable to scrape data. {e}")
 
-
 def augment_telegram(client: Instructor, message: any, filter: str):
     if len(message.text) > 5:
         # extract aspects of the tweet
         title = message.peer_id.channel_id
         content = message.text
 
-        # relvancy filter with gpt-4
+        # Relevancy filter with gpt-4
         filter_data = client.chat.completions.create(
             model="gpt-4",
             response_model=filterData,
@@ -314,7 +312,7 @@ def augment_telegram(client: Instructor, message: any, filter: str):
             ],
         )
 
-        if filter_data.relevant == True:
+        if filter_data.relevant:
             aug_data = None
             try:
                 # location extraction with gpt-3.5
@@ -327,22 +325,19 @@ def augment_telegram(client: Instructor, message: any, filter: str):
                 )
             except Exception as e:
                 Logger.info("Could not augment tweet, trying with alternate prompt")
-                # Potential alternate prompting
+                try:
+                    # Alternative prompt
+                    aug_data = client.chat.completions.create(
+                        model="gpt-4-turbo",
+                        response_model=messageData,
+                        messages=[
+                            {"role": "user", "content": f"can we extract any information about {filter} from this message {content}?"},
+                        ],
+                    )
+                except Exception as e2:
+                    Logger.info(f"Could not augment message with alternative prompt: {e2}")
+                    return None
 
-                # try:
-                #     #location extraction with gpt-3.5
-                #     aug_data = client.chat.completions.create(
-                #     model="gpt-4-turbo",
-                #     response_model=messageDataAlternate,
-                #     messages=[
-                #         {
-                #         "role": "user",
-                #         "content": f"Extract: {formatted_tweet_str}"
-                #         },
-                #     ]
-                #     )
-                # except Exception as e2:
-                return None
             city = aug_data.city
             country = aug_data.country
             extracted_location = city + "," + country
@@ -354,27 +349,33 @@ def augment_telegram(client: Instructor, message: any, filter: str):
             # NLP-informed geolocation
             try:
                 coordinates = get_lat_long(extracted_location)
+                latitude, longitude = coordinates if coordinates else ("no latitude", "no longitude")
             except Exception as e:
-                coordinates = None
-            if coordinates:
-                lattitude = coordinates[0]
-                longitude = coordinates[1]
-            else:
-                lattitude = "no latitude"
-                longitude = "no longitude"
-
-            # TODO: format date
+                Logger.info(f"Geolocation error: {e}")
+                latitude, longitude = "no latitude", "no longitude"
 
             return [
                 title,
                 content,
-                extracted_location,
-                lattitude,
+                f"{city}, {country}",
+                latitude,
                 longitude,
                 month,
                 day,
                 year,
                 disaster_type,
+            ]
+        else:
+            return [
+                title,
+                content,
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "Other",
             ]
 
 
