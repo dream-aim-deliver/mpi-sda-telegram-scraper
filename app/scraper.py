@@ -63,8 +63,7 @@ class messageData(BaseModel):
         "30",
         "31",
     ]
-    disaster_type: Literal["Wildfire", "Climate", "Other"]
-
+    disaster_type: str
 
 # Potential alternate prompting
 # class messageDataAlternate(BaseModel):
