@@ -110,8 +110,6 @@ if __name__ == "__main__":
         help="The log level to use when running the scraper. Possible values are DEBUG, INFO, WARNING, ERROR, CRITICAL. Set to WARNING by default.",
     )
 
-
-
     parser.add_argument(
         "--kp-auth-token",
         type=str,

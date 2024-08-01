@@ -17,20 +17,30 @@ def get_scraping_client(
 
         if not all([telegram_api_id, telegram_api_hash]):
             logger.error(
-                f"{job_id}: TELEGRAM_API_ID and TELEGRAM_API_HASH must be set."
+                f"{job_id}: telegram_api_id and telegram_api_hash must both be passed in."
             )
-            raise ValueError("TELEGRAM_API_ID and TELEGRAM_API_HASH must be set.")
+            raise ValueError("telegram_api_id and telegram_api_hash must both be passed in.")
 
         client = TelegramClient(
             "sda-telegram-scraper", telegram_api_id, telegram_api_hash
         )
 
-        if telegram_phone_number and telegram_password:
-            logger.info(f"{job_id}: Starting Telegram client with phone number")
-            client.start(
-                phone=telegram_phone_number,
-                password=telegram_password,
-            )
+        if telegram_phone_number:
+
+            if not telegram_password:
+                logger.info(f"{job_id}: Starting Telegram client with phone number")
+                client.start(
+                    phone=telegram_phone_number,
+                )
+
+            else:
+                logger.info(
+                    f"{job_id}: Starting Telegram client with phone number and password"
+                )
+                client.start(
+                    phone=telegram_phone_number,
+                    password=telegram_password,
+                )
 
         elif telegram_bot_token:
             logger.info(f"{job_id}: Starting Telegram client with bot token")
@@ -39,9 +49,9 @@ def get_scraping_client(
             )
 
         else:
-            raise ValueError(
-                "Either TELEGRAM_PHONE and TELEGRAM_PASSWORD, or TELEGRAM_BOT_TOKEN must be set."
-            )
+            logger.info(f"{job_id}: Starting Telegram client...")
+            client.start()
+
 
         logger.info(f"{job_id}: Telegram client started successfully")
 
