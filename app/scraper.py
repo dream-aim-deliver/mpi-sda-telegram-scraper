@@ -3,6 +3,7 @@ import logging
 import os
 import tempfile
 from typing import List
+from datetime import datetime
 from telethon import TelegramClient
 from app.sdk.models import KernelPlancksterSourceData, BaseJobState, JobOutput
 from app.sdk.scraped_data_repository import ScrapedDataRepository
@@ -95,6 +96,8 @@ async def scrape(
     tracer_id: str,
     scraped_data_repository: ScrapedDataRepository,
     telegram_client: TelegramClient,
+    start_date=start_date,
+    end_date=end_date,
     openai_api_key: str,
     log_level: Logger,
 ) -> JobOutput:
@@ -110,6 +113,24 @@ async def scrape(
         protocol = scraped_data_repository.protocol
 
         output_data_list: List[KernelPlancksterSourceData] = []
+
+        # Validate and convert dates
+        try:
+            date_format = "%Y-%m-%d"
+            start_datetime = datetime.strptime(start_date, date_format)
+            end_datetime = datetime.strptime(end_date, date_format)
+        except ValueError as e:
+            format_check = f"does not match format '{date_format}'"
+            if format_check in str(e):
+                human_date_format = date_format.replace("%Y", "YYYY") \
+                    .replace("%m", "MM") \
+                    .replace("%d", "DD")
+                raise ValueError(
+                    f"Start and end dates must be in {human_date_format} format"
+                )
+            else:
+                raise e
+
         async with telegram_client as client:
             assert isinstance(client, TelegramClient)  # for typing
 
@@ -126,12 +147,16 @@ async def scrape(
 
             try:
                 async for message in client.iter_messages(
-                    f"https://t.me/{channel_name}"
+                    f"https://t.me/{channel_name}",
+                    offset_date=end_datetime
                 ):
                     ############################################################
                     # IF YOU CAN ALREADY VALIDATE YOUR DATA HERE
                     # YOU MIGHT NOT NEED A LLM TO FIX ISSUES WITH THE DATA
                     ############################################################
+                    if message.date < start_datetime:
+                        continue
+
                     logger.info(f"message: {message}")
                     data.append(
                         [
@@ -281,11 +306,6 @@ async def scrape(
             job_state = BaseJobState.FINISHED
             # job.touch()
             logger.info(f"{job_id}: Job finished")
-            return JobOutput(
-                job_state=job_state,
-                tracer_id=tracer_id,
-                source_data_list=output_data_list,
-            )
 
     except Exception as error:
         logger.error(
@@ -294,6 +314,12 @@ async def scrape(
         job_state = BaseJobState.FAILED
 
         # job.messages.append(f"Status: FAILED. Unable to scrape data. {e}")
+
+    return JobOutput(
+        job_state=job_state,
+        tracer_id=tracer_id,
+        source_data_list=output_data_list,
+    )
 
 
 def augment_telegram(client: Instructor, message: any, filter: str):

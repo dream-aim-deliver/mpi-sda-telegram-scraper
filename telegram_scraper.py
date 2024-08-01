@@ -12,6 +12,8 @@ def main(
     job_id: int,
     channel_name: str,
     tracer_id: str,
+    start_date: str,
+    end_date: str,
     kp_auth_token: str,
     kp_host: str,
     kp_port: int,
@@ -28,9 +30,10 @@ def main(
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=log_level)
 
-    if not all([job_id, channel_name, tracer_id]):
-        logger.error(f"{job_id}: job_id, tracer_id, and channel_name must all be set.")
-        raise ValueError("job_id, tracer_id, and channel_name must all be set.")
+    if not all([job_id, channel_name, tracer_id, start_date, end_date]):
+        error_msg = "job_id, tracer_id, channel_name, and date range must all be set"
+        logger.error(f"{job_id}: {error_msg}")
+        raise ValueError(error_msg)
 
     kernel_planckster, protocol, file_repository = setup(
         job_id=job_id,
@@ -66,6 +69,8 @@ def main(
             job_id=job_id,
             channel_name=channel_name,
             tracer_id=tracer_id,
+            start_date=start_date,
+            end_date=end_date,
             scraped_data_repository=scraped_data_repository,
             telegram_client=telegram_client,
             log_level=log_level,
@@ -101,6 +106,20 @@ if __name__ == "__main__":
         type=str,
         default="1",
         help="The tracer id",
+    )
+
+    parser.add_argument(
+        "--start_date",
+        type=str,
+        default="2024-06-01",
+        help="The earliest date(time) from which to scrape, in YYYY-MM-DD format",
+    )
+
+    parser.add_argument(
+        "--end_date",
+        type=str,
+        default="2024-06-10",
+        help="The latest date(time) from which to scrape, in YYYY-MM-DD format",
     )
 
     parser.add_argument(
@@ -186,6 +205,8 @@ if __name__ == "__main__":
         job_id=args.job_id,
         channel_name=args.channel_name,
         tracer_id=args.tracer_id,
+        start_date=args.start_date,
+        end_date=args.end_date,
         log_level=args.log_level,
         kp_auth_token=args.kp_auth_token,
         kp_host=args.kp_host,
