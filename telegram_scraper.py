@@ -109,17 +109,17 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--start_date",
+        "--start-date",
         type=str,
         default="2024-06-01",
-        help="The earliest date(time) from which to scrape, in YYYY-MM-DD format",
+        help="The earliest date(time) from which to scrape, in YYYY-MM-DD HH:MM:SS format",
     )
 
     parser.add_argument(
-        "--end_date",
+        "--end-date",
         type=str,
         default="2024-06-10",
-        help="The latest date(time) from which to scrape, in YYYY-MM-DD format",
+        help="The latest date(time) from which to scrape, in YYYY-MM-DD HH:MM:SS format",
     )
 
     parser.add_argument(

@@ -14,6 +14,7 @@ from instructor import Instructor
 from openai import OpenAI
 from geopy.geocoders import Nominatim
 import pandas as pd
+import pytz
 
 
 class messageData(BaseModel):
@@ -96,8 +97,8 @@ async def scrape(
     tracer_id: str,
     scraped_data_repository: ScrapedDataRepository,
     telegram_client: TelegramClient,
-    start_date=start_date,
-    end_date=end_date,
+    start_date: str,
+    end_date: str,
     openai_api_key: str,
     log_level: Logger,
 ) -> JobOutput:
@@ -116,20 +117,28 @@ async def scrape(
 
         # Validate and convert dates
         try:
-            date_format = "%Y-%m-%d"
+            date_format = "%Y-%m-%d %H:%M:%S"
             start_datetime = datetime.strptime(start_date, date_format)
             end_datetime = datetime.strptime(end_date, date_format)
         except ValueError as e:
             format_check = f"does not match format '{date_format}'"
             if format_check in str(e):
                 human_date_format = date_format.replace("%Y", "YYYY") \
-                    .replace("%m", "MM") \
-                    .replace("%d", "DD")
+                    .replace("%m", "mm") \
+                    .replace("%d", "dd") \
+                    .replace("%H", "HH") \
+                    .replace("%M", "MM") \
+                    .replace("%S", "SS")
                 raise ValueError(
                     f"Start and end dates must be in {human_date_format} format"
                 )
             else:
                 raise e
+
+        start_datetime = start_datetime.replace(tzinfo=pytz.UTC)
+        end_datetime = end_datetime.replace(tzinfo=pytz.UTC)
+        if start_datetime <= end_datetime:
+            raise ValueError("Start date must be earlier than end date")
 
         async with telegram_client as client:
             assert isinstance(client, TelegramClient)  # for typing
