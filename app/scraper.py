@@ -123,12 +123,14 @@ async def scrape(
         except ValueError as e:
             format_check = f"does not match format '{date_format}'"
             if format_check in str(e):
-                human_date_format = date_format.replace("%Y", "YYYY") \
-                    .replace("%m", "mm") \
-                    .replace("%d", "dd") \
-                    .replace("%H", "HH") \
-                    .replace("%M", "MM") \
+                human_date_format = (
+                    date_format.replace("%Y", "YYYY")
+                    .replace("%m", "mm")
+                    .replace("%d", "dd")
+                    .replace("%H", "HH")
+                    .replace("%M", "MM")
                     .replace("%S", "SS")
+                )
                 raise ValueError(
                     f"Start and end dates must be in {human_date_format} format"
                 )
@@ -156,8 +158,7 @@ async def scrape(
 
             try:
                 async for message in client.iter_messages(
-                    f"https://t.me/{channel_name}",
-                    offset_date=end_datetime
+                    f"https://t.me/{channel_name}", offset_date=end_datetime
                 ):
                     ############################################################
                     # IF YOU CAN ALREADY VALIDATE YOUR DATA HERE
@@ -205,7 +206,8 @@ async def scrape(
                                 )
 
                                 file_name = f"{os.path.basename(tmp.name)}"
-                                relative_path = f"telegram/{tracer_id}/{job_id}/photos/{channel_name}-{file_name}.photo"
+                                file_timestamp = message.date.timestamp()
+                                relative_path = f"telegram/{tracer_id}/{job_id}/photos/{message.from_id}-{file_timestamp}.photo"
 
                                 data_name = os.path.splitext(file_name)[0]
 
@@ -245,7 +247,8 @@ async def scrape(
                                 )
 
                                 file_name = f"{os.path.basename(tmp.name)}"
-                                relative_path = f"telegram/{tracer_id}/{job_id}/videos/{channel_name}-{file_name}.video"
+                                file_timestamp = message.date.timestamp()
+                                relative_path = f"telegram/{tracer_id}/{job_id}/videos/{message.from_id}-{file_timestamp}.video"
                                 data_name = os.path.splitext(file_name)[0]
 
                                 document_data = KernelPlancksterSourceData(
