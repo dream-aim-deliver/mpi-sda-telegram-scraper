@@ -266,7 +266,7 @@ async def scrape(
                             f"{tmp.name}",
                         )
                     except Exception as e:
-                        logger.info("could not register file")
+                        logger.info(f"Could not register file. Error:\n{e}")
 
             except Exception as error:
                 job_state = BaseJobState.FAILED
@@ -297,15 +297,16 @@ async def scrape(
 
 
 def augment_telegram(client: Instructor, message: any, filter: str):
+    logger = logging.getLogger(__name__)
     if message:
         if len(message.text) > 5:
             # extract aspects of the tweet
             title = message.peer_id.channel_id
             content = message.text
 
-            # relvancy filter with gpt-4
+            # relvancy filter with gpt-4o
             filter_data = client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o",
                 response_model=filterData,
                 messages=[
                     {
@@ -318,16 +319,17 @@ def augment_telegram(client: Instructor, message: any, filter: str):
             if filter_data.relevant == True:
                 aug_data = None
                 try:
-                    # location extraction with gpt-3.5
+                    # location extraction with gpt-4o
+                    logger.info("Extracting location and date from content")
                     aug_data = client.chat.completions.create(
-                        model="gpt-4-turbo",
+                        model="gpt-4o",
                         response_model=messageData,
                         messages=[
                             {"role": "user", "content": f"Extract: {content}"},
                         ],
                     )
                 except Exception as e:
-                    Logger.info("Could not augment tweet, trying with alternate prompt")
+                    logger.error(f"Could not augment tweet. Error:\n{e}")
                     # Potential alternate prompting
 
                     # try:
@@ -356,6 +358,7 @@ def augment_telegram(client: Instructor, message: any, filter: str):
                 try:
                     coordinates = get_lat_long(extracted_location)
                 except Exception as e:
+                    logger.error(f"Could not get latitude and longitude. Error:\n{e}\n\nRetrying with just city...")
                     coordinates = None
                 if coordinates:
                     lattitude = coordinates[0]
@@ -381,6 +384,7 @@ def augment_telegram(client: Instructor, message: any, filter: str):
 
 # utility function for augmenting tweets with geolocation
 def get_lat_long(location_name):
+    logger = logging.getLogger(__name__)
     geolocator = Nominatim(user_agent="location_to_lat_long")
     try:
         location = geolocator.geocode(location_name)
@@ -391,5 +395,5 @@ def get_lat_long(location_name):
         else:
             return None
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
         return None
